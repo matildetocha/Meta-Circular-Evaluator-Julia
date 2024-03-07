@@ -33,6 +33,16 @@ function metajulia_eval(expr)
     if isa(expr, Expr) && expr.head == :call && expr.args[1] == :-
         return metajulia_eval(expr.args[2]) - sum(metajulia_eval(arg) for arg in expr.args[3:end])
     end
+    
+    #If the expression is a call to the multiplication function, evaluate it
+    if isa(expr, Expr) && expr.head == :call && expr.args[1] == :*
+        return prod(metajulia_eval(arg) for arg in expr.args[2:end])
+    end
+
+    #If the expression is a call to the division function, evaluate it
+    if isa(expr, Expr) && expr.head == :call && expr.args[1] == :/
+        return metajulia_eval(expr.args[2]) / metajulia_eval(expr.args[3])
+    end
 
     # Error handling, simply return the expression with a message "Unknown expression" and its type
     println("Unknown expression: ", expr, " of type ", typeof(expr))
