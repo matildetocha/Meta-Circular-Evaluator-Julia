@@ -14,7 +14,7 @@ end
 
 function metajulia_eval(expr)
 
-    if is_self_evaluator(expr)
+    if is_self_evaluating(expr)
         return expr
     end
 
@@ -44,9 +44,7 @@ function metajulia_eval(expr)
 end
 
 
-function is_self_evaluator(expr)
-    # If the expression is a number, string or boolean, then it's self evaluating just return it
-    if (isa(expr, Number) || isa(expr, String) || isa(expr, Boolean))
-        return expr
-
-        
+function is_self_evaluating(expr)
+    # If the expression is a number, string or boolean, then it's self evaluating and return true
+    return isa(expr, Number) || isa(expr, String) || isa(expr, Boolean)
+end        
