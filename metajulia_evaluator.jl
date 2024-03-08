@@ -14,13 +14,7 @@ end
 
 function metajulia_eval(expr)
 
-    # If the expression is a single number, return it
-    if isa(expr, Number)
-        return expr
-    end
-
-    # If the expression is a string, return it
-    if isa(expr, String)
+    if is_self_evaluator(expr)
         return expr
     end
 
@@ -48,3 +42,11 @@ function metajulia_eval(expr)
     println("Unknown expression: ", expr, " of type ", typeof(expr))
 
 end
+
+
+function is_self_evaluator(expr)
+    # If the expression is a number, string or boolean, then it's self evaluating just return it
+    if (isa(expr, Number) || isa(expr, String) || isa(expr, Boolean))
+        return expr
+
+        
