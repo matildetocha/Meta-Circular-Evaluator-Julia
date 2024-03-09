@@ -16,12 +16,17 @@ function metajulia_eval(expr)
 
     println("Evaluating expression: ", expr)
     println("Type of expression: ", typeof(expr))
+    println("Head of expression: ", expr.head)
+    println("Arguments of expression: ", expr.args)
 
     if is_self_evaluating(expr)
         return expr
     elseif is_call(expr)
         println("Processing call")
         return process_call(expr)
+    elseif is_cond(expr)
+        println("Processing condition")
+        return process_condition(expr)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
@@ -37,6 +42,11 @@ function is_call(expr)
     return expr.head == :call
 end
 
+function is_cond(expr)
+    return expr.head == :if
+end
+
+# Process Calls ----------------------------------------------------------------------
 function process_call(expr)
     # If the expression is a call to the addition function, evaluate it
     if is_addition(expr)
@@ -98,4 +108,9 @@ end
 
 function process_division(expr)
     return metajulia_eval(first_argument(expr)) / metajulia_eval(second_argument(expr))
+end
+
+# Process Condition ----------------------------------------------------------------------
+function process_condition(expr)
+     
 end
