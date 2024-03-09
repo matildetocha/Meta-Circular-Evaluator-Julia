@@ -36,8 +36,8 @@ end
 
 function process_call(expr)
     # If the expression is a call to the addition function, evaluate it
-    if expr.args[1] == :+
-        return sum(metajulia_eval(arg) for arg in expr.args[2:end])
+    if is_addition(expr)
+        return process_addition(expr)
     end
 
     # If the expression is a call to the subtraction function, evaluate it
@@ -54,4 +54,20 @@ function process_call(expr)
     if isa(expr, Expr) && expr.head == :call && expr.args[1] == :/
         return metajulia_eval(expr.args[2]) / metajulia_eval(expr.args[3])
     end
+end
+
+function is_addition(expr)
+    return expr.args[1] == :+
+end
+
+function process_addition(expr)
+    return first_argument(expr) + second_argument(expr)
+end
+
+function first_argument(expr)
+    return expr.args[2]
+end
+
+function second_argument(expr)
+    return expr.args[3]
 end
