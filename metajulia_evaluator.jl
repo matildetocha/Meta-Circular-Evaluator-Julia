@@ -16,13 +16,12 @@ function metajulia_eval(expr)
 
     println("Evaluating expression: ", expr)
     println("Type of expression: ", typeof(expr))
-    println("Head of expression: ", expr.head)
-    println("Arguments of expression: ", expr.args)
+    #println("Head of expression: ", expr.head)
+    #println("Arguments of expression: ", expr.args)
 
     if is_self_evaluating(expr)
         return expr
     elseif is_call(expr)
-        println("Processing call")
         return process_call(expr)
     elseif is_cond(expr)
         println("Processing condition")
@@ -34,15 +33,20 @@ function metajulia_eval(expr)
 end
 
 function is_self_evaluating(expr)
+    println("process number")
     # If the expression is a number, string or boolean, then it's self evaluating and return true
     return isa(expr, Number) || isa(expr, String) || isa(expr, Bool)
 end        
 
 function is_call(expr)
+    println("process is call")
+
     return expr.head == :call
 end
 
 function is_cond(expr)
+    println("process is cond")
+
     return expr.head == :if
 end
 
@@ -64,6 +68,26 @@ function process_call(expr)
     if is_division(expr)
         return process_division(expr)
     end
+    # If the expression is a call to the greater function, evaluate it
+    if is_greater(expr)
+        return process_greater(expr)
+    end
+    # If the expression is a call to the less function, evaluate it
+    if is_less(expr)
+        return process_less(expr)
+    end
+    # If the expression is a call to the equal function, evaluate it
+    if is_equal(expr)
+        return process_equal(expr)
+    end
+    # If the expression is a call to the greater_equal function, evaluate it
+    if is_greater_equal(expr)
+        return process_greater_equal(expr)
+    end
+    # If the expression is a call to the less_equal function, evaluate it
+    if is_less_equal(expr)
+        return process_less_equal(expr)
+    end
 end
 
 function is_addition(expr)
@@ -82,6 +106,26 @@ function is_division(expr)
     return expr.args[1] == :/
 end
 
+function is_greater(expr)
+    return expr.args[1] == :>
+end
+
+function is_less(expr)
+    return expr.args[1] == :<
+end
+
+function is_equal(expr)
+    return expr.args[1] == :(==)
+end
+
+function is_greater_equal(expr)
+    return expr.args[1] == :(>=)
+end
+
+function is_less_equal(expr)
+    return expr.args[1] == :(<=)
+end
+
 function first_argument(expr)
     return expr.args[2]
 end
@@ -94,6 +138,7 @@ function rest_arguments(expr)
     return expr.args[3:end]
 end
 
+# Process Operations ------------------------------------------------------------------
 function process_addition(expr)
     return metajulia_eval(first_argument(expr)) + metajulia_eval(second_argument(expr))
 end
@@ -108,6 +153,27 @@ end
 
 function process_division(expr)
     return metajulia_eval(first_argument(expr)) / metajulia_eval(second_argument(expr))
+end
+
+# Process Logical Operations ------------------------------------------------------------------
+function process_greater(expr)
+    return metajulia_eval(first_argument(expr)) > metajulia_eval(second_argument(expr))
+end
+
+function process_less(expr)
+    return metajulia_eval(first_argument(expr)) < metajulia_eval(second_argument(expr))
+end
+
+function process_equal(expr)
+    return metajulia_eval(first_argument(expr)) == metajulia_eval(second_argument(expr))
+end
+
+function process_greater_equal(expr)
+    return metajulia_eval(first_argument(expr)) >= metajulia_eval(second_argument(expr))
+end
+
+function process_less_equal(expr)
+    return metajulia_eval(first_argument(expr)) <= metajulia_eval(second_argument(expr))
 end
 
 # Process Condition ----------------------------------------------------------------------
