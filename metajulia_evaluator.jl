@@ -77,6 +77,10 @@ function process_call(expr)
     if is_equal(expr)
         return process_equal(expr)
     end
+    # If the expression is a call to the not_equal function, evaluate it
+    if is_not_equal(expr)
+        return process_not_equal(expr)
+    end
     # If the expression is a call to the greater_equal function, evaluate it
     if is_greater_equal(expr)
         return process_greater_equal(expr)
@@ -139,6 +143,10 @@ function is_equal(expr)
     return expr.args[1] == :(==)
 end
 
+function is_not_equal(expr)
+    return expr.args[1] == :(!=)
+end
+
 function is_greater_equal(expr)
     return expr.args[1] == :(>=)
 end
@@ -187,6 +195,10 @@ end
 
 function process_equal(expr)
     return metajulia_eval(first_argument(expr)) == metajulia_eval(second_argument(expr))
+end
+
+function process_not_equal(expr)
+    return metajulia_eval
 end
 
 function process_greater_equal(expr)
