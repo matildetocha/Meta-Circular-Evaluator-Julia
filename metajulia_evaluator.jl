@@ -198,7 +198,7 @@ function process_equal(expr)
 end
 
 function process_not_equal(expr)
-    return metajulia_eval
+    return metajulia_eval(first_argument(expr)) != metajulia_eval(second_argument(expr))
 end
 
 function process_greater_equal(expr)
