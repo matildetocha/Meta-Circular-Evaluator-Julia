@@ -19,7 +19,6 @@ function metajulia_eval(expr)
     #println("Head of expression: ", expr.head)
     #println("Arguments of expression: ", expr.args[1])
 
-
     if is_self_evaluating(expr)
         return expr
     elseif is_call(expr)
@@ -47,48 +46,87 @@ function is_cond(expr)
     return expr.head == :if
 end
 
+# Slide 163
+# Primitives ----------------------------------------------------------------------
+function make_primitives(symb)
+    return [:primitive, symb]
+end
+
+function is_primitive(expr)
+    return isa(expr, Symbol) && expr == :primitive
+end
+
+function initial_bindings()
+    make_primitives(:+)
+    make_primitives(:-)
+    make_primitives(:*)
+    make_primitives(:/)
+    make_primitives(:(=))
+    make_primitives(:>) 
+    make_primitives(:<)
+    make_primitives(:(==))
+    make_primitives(:(!=))
+    make_primitives(:(>=))
+    make_primitives(:(<=))
+end
+
+function primitive_operation(prim)
+    prim[2] #?? 
+end
+
+function apply_primitive(prim, args)
+    apply(primitive_operation(prim), args)
+end
+
+# Slide 290 (284 explains why)
+# Frames - a frame is basically symbols/ names and its values
+function make_frame(names, values)
+    return (names, values)
+end
+
+# Environment 
+function make_environment(frame, old_env) #! check, probably change to augment_environment
+    return (frame, old_env)
+end
+
+function empty_environment()
+    return []
+end
+
+function initial_environment()
+    make_environment(initial_bindings(), empty_environment())
+end
+
 # Process Calls ----------------------------------------------------------------------
 function process_call(expr)
-    # If the expression is a call to the addition function, evaluate it
-    if is_addition(expr)
+    # Verify what type the call is, then process it
+
+    # If the call is a primitive operation
+    if is_primitive(expr)
+        println("PRIMITIVE")
+        return apply_primitive(primitive_operation(expr), rest_arguments(expr))
+    end
+    #= if is_addition(expr)
         return process_addition(expr)
-    end
-    # If the expression is a call to the subtraction function, evaluate it
-    if is_subtraction(expr)
+    elseif is_subtraction(expr)
         return process_subtraction(expr)
-    end
-    # If the expression is a call to the multiplication function, evaluate it
-    if is_multiplication(expr)
+    elseif is_multiplication(expr)
         return process_multiplication(expr)
-    end
-    # If the expression is a call to the division function, evaluate it
-    if is_division(expr)
+    elseif is_division(expr)
         return process_division(expr)
-    end
-    # If the expression is a call to the greater function, evaluate it
-    if is_greater(expr)
+    elseif is_greater(expr)
         return process_greater(expr)
-    end
-    # If the expression is a call to the less function, evaluate it
-    if is_less(expr)
+    elseif is_less(expr)
         return process_less(expr)
-    end
-    # If the expression is a call to the equal function, evaluate it
-    if is_equal(expr)
+    elseif is_equal(expr)
         return process_equal(expr)
-    end
-    # If the expression is a call to the not_equal function, evaluate it
-    if is_not_equal(expr)
+    elseif is_not_equal(expr)
         return process_not_equal(expr)
-    end
-    # If the expression is a call to the greater_equal function, evaluate it
-    if is_greater_equal(expr)
+    elseif is_greater_equal(expr)
         return process_greater_equal(expr)
-    end
-    # If the expression is a call to the less_equal function, evaluate it
-    if is_less_equal(expr)
+    elseif is_less_equal(expr)
         return process_less_equal(expr)
-    end
+    end =#
     
 end
 
