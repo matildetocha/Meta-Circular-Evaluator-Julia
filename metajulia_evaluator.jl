@@ -55,7 +55,7 @@ end
 function is_primitive(expr)
     return isa(expr, Symbol) && expr == :primitive
 end
-
+ 
 function initial_bindings()
     make_primitives(:+)
     make_primitives(:-)
