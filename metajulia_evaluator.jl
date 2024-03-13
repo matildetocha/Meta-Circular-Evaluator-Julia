@@ -1,4 +1,5 @@
 function metajulia_repl()
+    println()
     while true
         print(">> ") 
         line = readline() 
@@ -12,7 +13,10 @@ function metajulia_repl()
     end
 end
 
-function metajulia_eval(expr)
+# foo(x, y=1) = x + y
+# make_primitives(f) = [:primitive, f]
+
+function metajulia_eval(expr, env = initial_bindings())
 
     println("Evaluating expression: ", expr)
     println("Type of expression: ", typeof(expr))
@@ -22,7 +26,7 @@ function metajulia_eval(expr)
     if is_self_evaluating(expr)
         return expr
     elseif is_call(expr)
-        return process_call(expr)
+        return process_call(expr, env)
     elseif is_gate(expr)
         return process_gate(expr)
     elseif is_cond(expr)
@@ -48,30 +52,35 @@ end
 
 # Slide 163
 # Primitives ----------------------------------------------------------------------
-function make_primitives(symb)
-    return [:primitive, symb]
+function make_primitive(f)
+    return [:primitive, f]
 end
 
-function is_primitive(expr)
-    return isa(expr, Symbol) && expr == :primitive
+function is_primitive(obj)
+    println(primitives)
+    println("Is primitive ?: ", obj)
+    return obj[1] == :primitive
 end
- 
+
 function initial_bindings()
-    make_primitives(:+)
-    make_primitives(:-)
-    make_primitives(:*)
-    make_primitives(:/)
-    make_primitives(:(=))
-    make_primitives(:>) 
-    make_primitives(:<)
-    make_primitives(:(==))
-    make_primitives(:(!=))
-    make_primitives(:(>=))
-    make_primitives(:(<=))
+    primitives = [
+    :(+) => make_primitive(+);
+    :(-) => make_primitive(-);
+    :(*) => make_primitive(*);
+    :(/) => make_primitive(/);
+    # :(=) => make_primitives(=);
+    :(>) => make_primitive(>);
+    :(<) => make_primitive(<);
+    :(==) => make_primitive(==);
+    :(!=) => make_primitive(!=);
+    :(>=) => make_primitive(>=);
+    :(<=) => make_primitive(<=);
+    ]
+    return primitives
 end
 
-function primitive_operation(prim)
-    prim[2] #?? 
+function primitive_operation(obj)
+    return obj[2] 
 end
 
 function apply_primitive(prim, args)
@@ -98,11 +107,14 @@ function initial_environment()
 end
 
 # Process Calls ----------------------------------------------------------------------
-function process_call(expr)
+function process_call(expr, env)
     # Verify what type the call is, then process it
+    func = eval_name(call_operator(expr), env)
+    call_operator = expr.args[1] = +
+    eval-name = [:primitive, +]   
 
     # If the call is a primitive operation
-    if is_primitive(expr)
+    if is_primitive(func)
         println("PRIMITIVE")
         return apply_primitive(primitive_operation(expr), rest_arguments(expr))
     end
@@ -127,8 +139,14 @@ function process_call(expr)
     elseif is_less_equal(expr)
         return process_less_equal(expr)
     end =#
-    
 end
+
+call_operator(expr) = expr.args[1]
+
+function eval_name(name, env)
+        
+end
+
 
 function is_gate(expr)
     return is_and(expr) || is_or(expr)
@@ -151,7 +169,6 @@ end
 function is_or(expr)
     return expr.head == :(||)
 end
-
 
 function is_addition(expr)
     return expr.args[1] == :+
@@ -264,6 +281,5 @@ function second_argument_gate(expr)
     return expr.args[2]
 end
 # Process Condition ----------------------------------------------------------------------
-function process_condition(expr)
-     
+function process_condition(expr)    
 end
