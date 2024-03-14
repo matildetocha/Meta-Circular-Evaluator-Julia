@@ -18,11 +18,6 @@ end
 
 function metajulia_eval(expr, env = initial_bindings())
 
-    println("Evaluating expression: ", expr)
-    println("Type of expression: ", typeof(expr))
-    #println("Head of expression: ", expr.head)
-    #println("Arguments of expression: ", expr.args[1])
-
     if is_self_evaluating(expr)
         return expr
     elseif is_call(expr)
@@ -57,8 +52,6 @@ function make_primitive(f)
 end
 
 function is_primitive(obj)
-    println(primitives)
-    println("Is primitive ?: ", obj)
     return obj[1] == :primitive
 end
 
@@ -83,9 +76,7 @@ function primitive_operation(obj)
     return obj[2] 
 end
 
-function apply_primitive(prim, args)
-    apply(primitive_operation(prim), args)
-end
+apply_primitive(prim, args) = prim(args...)
 
 # Slide 290 (284 explains why)
 # Frames - a frame is basically symbols/ names and its values
@@ -110,13 +101,13 @@ end
 function process_call(expr, env)
     # Verify what type the call is, then process it
     func = eval_name(call_operator(expr), env)
-    call_operator = expr.args[1] = +
-    eval-name = [:primitive, +]   
+    args = eval_exprs(call_operands(expr), env)
+    #call_operator = expr.args[1] = +
+    #eval-name = [:primitive, +]   
 
     # If the call is a primitive operation
     if is_primitive(func)
-        println("PRIMITIVE")
-        return apply_primitive(primitive_operation(expr), rest_arguments(expr))
+        return apply_primitive(primitive_operation(func), args)
     end
     #= if is_addition(expr)
         return process_addition(expr)
@@ -126,7 +117,7 @@ function process_call(expr, env)
         return process_multiplication(expr)
     elseif is_division(expr)
         return process_division(expr)
-    elseif is_greater(expr)
+    elseif is_greater(expr)expr
         return process_greater(expr)
     elseif is_less(expr)
         return process_less(expr)
@@ -143,10 +134,27 @@ end
 
 call_operator(expr) = expr.args[1]
 
+call_operands(expr) = expr.args[2:end]
+
 function eval_name(name, env)
-        
+    if isempty(env)
+        return error("Unbound name -- EVAL-NAME", name)
+    elseif env[1][1] == name
+        return env[1][2]
+    else
+        return eval_name(name, env[2:end])
+    end
 end
 
+function eval_exprs(exprs, env)
+    if isempty(exprs)
+        return []
+    else
+        evaluated_expr = metajulia_eval(exprs[1], env)
+        remaining_exprs = eval_exprs(exprs[2:end], env)
+        return [evaluated_expr, remaining_exprs...]
+    end
+end
 
 function is_gate(expr)
     return is_and(expr) || is_or(expr)
@@ -282,4 +290,5 @@ function second_argument_gate(expr)
 end
 # Process Condition ----------------------------------------------------------------------
 function process_condition(expr)    
+
 end
