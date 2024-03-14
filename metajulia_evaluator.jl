@@ -17,6 +17,8 @@ function metajulia_eval(expr, env = initial_bindings())
 
     if is_self_evaluating(expr)
         return expr
+    #elseif is_name(expr)
+    #    return process_name(expr, env)
     elseif is_call(expr)
         return process_call(expr, env)
     elseif is_gate(expr)
@@ -43,8 +45,17 @@ function is_cond(expr)
     return expr.head == :if
 end
 
+function is_name(expr)
+    return isa(expr, Symbol)
+end
+
+function is_let(expr)
+    return expr.head == :let
+end
+
 # Slide 163
 # Primitives ----------------------------------------------------------------------
+
 function make_primitive(f)
     return [:primitive, f]
 end
@@ -81,7 +92,8 @@ function make_frame(names, values)
     return (names, values)
 end
 
-# Environment 
+# Environment ----------------------------------------------------------------------
+
 function make_environment(frame, old_env) #! check, probably change to augment_environment
     return (frame, old_env)
 end
@@ -95,6 +107,7 @@ function initial_environment()
 end
 
 # Process Calls ----------------------------------------------------------------------
+
 function process_call(expr, env)
     # Verify what type the call is, then process it
     func = eval_name(call_operator(expr), env)
@@ -192,3 +205,6 @@ end
 
 # NOT FINISHED YET
 # WE NEED TO CHECK BLOCK CASES
+
+# Let ----------------------------------------------------------------------
+
