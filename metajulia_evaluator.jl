@@ -22,7 +22,8 @@ function metajulia_eval(expr, env = initial_bindings())
     elseif is_gate(expr)
         return process_gate(expr)
     elseif is_cond(expr)
-        return process_condition(expr)
+        println("is cond")
+        return process_condition(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
@@ -109,6 +110,8 @@ call_operator(expr) = expr.args[1]
 
 call_operands(expr) = expr.args[2:end]
 
+# Eval functions ---------------------------------------------------------------------
+
 function eval_name(name, env)
     if isempty(env)
         return error("Unbound name -- EVAL-NAME", name)
@@ -128,6 +131,8 @@ function eval_exprs(exprs, env)
         return [evaluated_expr, remaining_exprs...]
     end
 end
+
+# Process Gates ---------------------------------------------------------------------
 
 function is_gate(expr)
     return is_and(expr) || is_or(expr)
@@ -170,6 +175,20 @@ function second_argument_gate(expr)
 end
 
 # Process Condition ----------------------------------------------------------------------
-function process_condition(expr)    
 
+if_condition(expr) = expr.args[1]
+
+if_consequent(expr) = expr.args[2]
+
+if_alternative(expr) = expr.args[3]
+
+function process_condition(expr, env)   
+    if metajulia_eval(if_condition(expr), env)
+        return metajulia_eval(if_consequent(expr), env)
+    else
+        return metajulia_eval(if_alternative(expr), env)
+    end
 end
+
+# NOT FINISHED YET
+# WE NEED TO CHECK BLOCK CASES
