@@ -1,5 +1,4 @@
 function metajulia_repl()
-    println()
     while true
         print(">> ") 
         line = readline() 
@@ -13,8 +12,6 @@ function metajulia_repl()
     end
 end
 
-# foo(x, y=1) = x + y
-# make_primitives(f) = [:primitive, f]
 
 function metajulia_eval(expr, env = initial_bindings())
 
@@ -61,7 +58,6 @@ function initial_bindings()
     :(-) => make_primitive(-);
     :(*) => make_primitive(*);
     :(/) => make_primitive(/);
-    # :(=) => make_primitives(=);
     :(>) => make_primitive(>);
     :(<) => make_primitive(<);
     :(==) => make_primitive(==);
@@ -102,34 +98,11 @@ function process_call(expr, env)
     # Verify what type the call is, then process it
     func = eval_name(call_operator(expr), env)
     args = eval_exprs(call_operands(expr), env)
-    #call_operator = expr.args[1] = +
-    #eval-name = [:primitive, +]   
-
+      
     # If the call is a primitive operation
     if is_primitive(func)
         return apply_primitive(primitive_operation(func), args)
     end
-    #= if is_addition(expr)
-        return process_addition(expr)
-    elseif is_subtraction(expr)
-        return process_subtraction(expr)
-    elseif is_multiplication(expr)
-        return process_multiplication(expr)
-    elseif is_division(expr)
-        return process_division(expr)
-    elseif is_greater(expr)expr
-        return process_greater(expr)
-    elseif is_less(expr)
-        return process_less(expr)
-    elseif is_equal(expr)
-        return process_equal(expr)
-    elseif is_not_equal(expr)
-        return process_not_equal(expr)
-    elseif is_greater_equal(expr)
-        return process_greater_equal(expr)
-    elseif is_less_equal(expr)
-        return process_less_equal(expr)
-    end =#
 end
 
 call_operator(expr) = expr.args[1]
@@ -178,99 +151,6 @@ function is_or(expr)
     return expr.head == :(||)
 end
 
-function is_addition(expr)
-    return expr.args[1] == :+
-end
-
-function is_subtraction(expr)
-    return expr.args[1] == :-
-end
-
-function is_multiplication(expr)
-    return expr.args[1] == :*
-end
-
-function is_division(expr)
-    return expr.args[1] == :/
-end
-
-function is_greater(expr)
-    return expr.args[1] == :>
-end
-
-function is_less(expr)
-    return expr.args[1] == :<
-end
-
-function is_equal(expr)
-    return expr.args[1] == :(==)
-end
-
-function is_not_equal(expr)
-    return expr.args[1] == :(!=)
-end
-
-function is_greater_equal(expr)
-    return expr.args[1] == :(>=)
-end
-
-function is_less_equal(expr)
-    return expr.args[1] == :(<=)
-end
-
-function first_argument(expr)
-    return expr.args[2]
-end
-
-function second_argument(expr)
-    return expr.args[3]
-end
-
-function rest_arguments(expr)
-    return expr.args[3:end]
-end
-
-# Process Operations ------------------------------------------------------------------
-function process_addition(expr)
-    return metajulia_eval(first_argument(expr)) + metajulia_eval(second_argument(expr))
-end
-
-function process_subtraction(expr)
-    return metajulia_eval(first_argument(expr)) - metajulia_eval(second_argument(expr))
-end
-
-function process_multiplication(expr)
-    return metajulia_eval(first_argument(expr)) * metajulia_eval(second_argument(expr)) 
-end
-
-function process_division(expr)
-    return metajulia_eval(first_argument(expr)) / metajulia_eval(second_argument(expr))
-end
-
-# Process Comparison Operations ------------------------------------------------------------------
-function process_greater(expr)
-    return metajulia_eval(first_argument(expr)) > metajulia_eval(second_argument(expr))
-end
-
-function process_less(expr)
-    return metajulia_eval(first_argument(expr)) < metajulia_eval(second_argument(expr))
-end
-
-function process_equal(expr)
-    return metajulia_eval(first_argument(expr)) == metajulia_eval(second_argument(expr))
-end
-
-function process_not_equal(expr)
-    return metajulia_eval(first_argument(expr)) != metajulia_eval(second_argument(expr))
-end
-
-function process_greater_equal(expr)
-    return metajulia_eval(first_argument(expr)) >= metajulia_eval(second_argument(expr))
-end
-
-function process_less_equal(expr)
-    return metajulia_eval(first_argument(expr)) <= metajulia_eval(second_argument(expr))
-end
 
 # Process Gate Operations ------------------------------------------------------------------
 function process_and(expr)
@@ -288,6 +168,7 @@ end
 function second_argument_gate(expr)
     return expr.args[2]
 end
+
 # Process Condition ----------------------------------------------------------------------
 function process_condition(expr)    
 
