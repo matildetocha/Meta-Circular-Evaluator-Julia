@@ -3,19 +3,19 @@
 include("environment.jl")
 include("primitives.jl")
 
-# ------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 # - Eval
-# ------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 
-# Evaluating a Self-Evaluating Expression --------------------------------------------
+# Evaluating a Self-Evaluating Expression ---------------------------------------------------------
 
 # Predicate
 function is_self_evaluating(expr)
-    # If the expression is a number, string or boolean, then it's self evaluating and return true
+    # If the expression is a number, string or boolean, then it's self evaluating
     return isa(expr, Number) || isa(expr, String) || isa(expr, Bool)
 end  
 
-# Evaluating a Name ------------------------------------------------------------------
+# Evaluating a Name -------------------------------------------------------------------------------
 
 function eval_name(name, env)
     if isempty(env)
@@ -27,7 +27,7 @@ function eval_name(name, env)
     end
 end
 
-# Evaluating an Expression -----------------------------------------------------------
+# Evaluating an Expression ------------------------------------------------------------------------
 
 function eval_exprs(exprs, env)
     if isempty(exprs)
@@ -39,7 +39,7 @@ function eval_exprs(exprs, env)
     end
 end
 
-# Evaluating a Call ------------------------------------------------------------------
+# Evaluating a Call -------------------------------------------------------------------------------
 
 # Predicate
 function is_call(expr)
@@ -65,7 +65,7 @@ function eval_call(expr, env)
     end
 end
 
-# Evaluating a Boolean Operator ------------------------------------------------------
+# Evaluating a Boolean Operator -------------------------------------------------------------------
 
 # Predicates
 function is_bool_operator(expr)
@@ -94,7 +94,6 @@ function eval_or(expr)
     return metajulia_eval(first_argument_gate(expr)) || metajulia_eval(second_argument_gate(expr))
 end
 
-# Eval Boolean Operator
 function eval_bool_operator(expr)
     if is_and(expr)
         return eval_and(expr)
@@ -104,9 +103,15 @@ function eval_bool_operator(expr)
     end
 end
 
-# Evaluating an If -------------------------------------------------------------------
+# Evaluating an If-Elseif-Else --------------------------------------------------------------------
+
+# Predicates
 function is_if(expr)
     return expr.head == :if
+end
+
+function is_elseif(expr)
+    return expr.head == :elseif 
 end
 
 function is_true(value)
@@ -116,41 +121,34 @@ end
 function is_false(value)
     return value == false
 end
-  
-function if_condition(expr) 
-    return expr.args[1]
-end
+
+# Selectors
+if_condition(expr) = expr.args[1]
 
 if_consequent(expr) = expr.args[2]
 
 if_alternative(expr) = expr.args[3]
 
-# Evaluating an ElseIf ----------------------------------------------------------------
-
-function is_elseif(expr)
-    return expr.head ==:elseif 
-end
-
+# Eval If
 function eval_if(expr, env)
     if is_true(metajulia_eval(if_condition(expr), env))
         return metajulia_eval(if_consequent(expr), env)
     else
         return metajulia_eval(if_alternative(expr), env)
-    end
-      
+    end 
 end
 
-# Evaluating a Block -----------------------------------------------------------------
+# Evaluating a Block ------------------------------------------------------------------------------
+
+# Predicate
 function is_block(expr)
     return expr.head == :block  
 end
 
+# Selector
 block_expressions(block) = block.args
 
-function eval_block(block, env)
-    return eval_sequence_expr(block_expressions(block), env)
-end
-
+# Eval Block
 function eval_sequence_expr(block_expr, env)
     if isempty(block_expr[2:end])
         return metajulia_eval(block_expr[1], env)
@@ -159,17 +157,16 @@ function eval_sequence_expr(block_expr, env)
         return eval_sequence_expr(block_expr[2:end], env)  
     end  
 end
-    
-# Evaluating a Line Number Node ------------------------------------------------------
+
+function eval_block(block, env)
+    return eval_sequence_expr(block_expressions(block), env)
+end
+ 
+# Evaluating a Line Number Node -------------------------------------------------------------------
 
 is_line_number_node(expr) = isa(expr, LineNumberNode)
 
-# Evaluating a Cond ------------------------------------------------------------------
-
-
-
-
-# Meta Julia Eval --------------------------------------------------------------------
+# Meta Julia Eval ---------------------------------------------------------------------------------
 function metajulia_eval(expr, env = initial_bindings())
     if is_line_number_node(expr)
         return 
@@ -187,13 +184,13 @@ function metajulia_eval(expr, env = initial_bindings())
         return eval_block(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
-        println("Unknown expression:", expr, " of type ", typeof(expr))
+        println("Unknown expression: ", expr, " of type ", typeof(expr))
     end
 end
 
-# ------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 # - REPL
-# ------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 function metajulia_repl()
     while true
         print(">> ")
