@@ -125,11 +125,14 @@ if_consequent(expr) = expr.args[2]
 
 if_alternative(expr) = expr.args[3]
 
-# NOT FINISHED YET
-# WE NEED TO CHECK BLOCK CASES
+# Evaluating an ElseIf ----------------------------------------------------------------
+
+function is_elseif(expr)
+    return expr.head ==:elseif 
+end
 
 function eval_if(expr, env)
-    if is_true( metajulia_eval(if_condition(expr), env))
+    if is_true(metajulia_eval(if_condition(expr), env))
         return metajulia_eval(if_consequent(expr), env)
     else
         return metajulia_eval(if_alternative(expr), env)
@@ -137,21 +140,40 @@ function eval_if(expr, env)
       
 end
 
-# Evaluating a Begin -----------------------------------------------------------------
+# Evaluating a Block -----------------------------------------------------------------
 function is_block(expr)
     return expr.head == :block  
 end
 
-function eval_block(expr)
-    return expr
+block_expressions(block) = block.args
+
+function eval_block(block, env)
+    return eval_sequence_expr(block_expressions(block), env)
 end
+
+function eval_sequence_expr(block_expr, env)
+    if isempty(block_expr[2:end])
+        return metajulia_eval(block_expr[1], env)
+    else
+        metajulia_eval(block_expr[1], env)
+        return eval_sequence_expr(block_expr[2:end], env)  
+    end  
+end
+    
+# Evaluating a Line Number Node ------------------------------------------------------
+
+is_line_number_node(expr) = isa(expr, LineNumberNode)
 
 # Evaluating a Cond ------------------------------------------------------------------
 
 
+
+
 # Meta Julia Eval --------------------------------------------------------------------
 function metajulia_eval(expr, env = initial_bindings())
-    if is_self_evaluating(expr)
+    if is_line_number_node(expr)
+        return 
+    elseif is_self_evaluating(expr)
         return expr
     elseif is_call(expr)
         return eval_call(expr, env)
@@ -159,15 +181,19 @@ function metajulia_eval(expr, env = initial_bindings())
         return eval_bool_operator(expr)
     elseif is_if(expr)
         return eval_if(expr, env)
+    elseif is_elseif(expr)
+        return eval_if(expr, env)
     elseif is_block(expr)
-        return eval_block(expr)
+        return eval_block(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
-        println("Unknown expression: ", expr, " of type ", typeof(expr))
+        println("Unknown expression:", expr, " of type ", typeof(expr))
     end
 end
 
-# REPL -------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
+# - REPL
+# ------------------------------------------------------------------------------------
 function metajulia_repl()
     while true
         print(">> ")
