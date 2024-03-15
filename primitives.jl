@@ -7,7 +7,7 @@ end
 
 # Predicate
 function is_primitive(expr)
-  return length(expr) == 2 && expr[1] == :primitive
+  return expr[1] == :primitive
 end
 
 # Selectors
@@ -42,10 +42,19 @@ function initial_bindings()
     :(>=) => make_primitive(>=);
     :(<) => make_primitive(<);
     :(<=) => make_primitive(<=);
+    # Print and Println
+    :(print) => make_primitive(print);
+    :(println) => make_primitive(println);
   ]
   return primitives
 end
 
 function apply_primitive(func, args)
-  return primitive_operation(func)(args...)
+  result = primitive_operation(func)(args...)
+
+  if isnothing(result)
+    result = ""
+  end
+
+  return result
 end
