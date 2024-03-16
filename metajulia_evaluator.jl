@@ -185,7 +185,7 @@ function let_names(expr)
     if is_block(expr)
         return map(x -> x.args[1], expr.args[1].args)
     else
-       return expr.args[1].args[1]
+       return [expr.args[1].args[1]]
     end
 end
 
@@ -193,16 +193,14 @@ function let_inits(expr)
     if is_block(expr)
         return map(x -> x.args[2], expr.args[1].args)
     else 
-        return expr.args[1].args[2]
+        return [expr.args[1].args[2]]
     end
 end
 
-let_body(expr) = expr.args[2][1]
+let_body(expr) = expr.args[2]
 
 # Eval Let
 function eval_let(expr, env)
-    println("Let names : ", let_names(expr))
-    println("Let init : ", let_inits(expr))
     values = eval_exprs(let_inits(expr), env)
     extended_environment = augment_environment(let_names(expr), values, env)
     return metajulia_eval(let_body(expr), extended_environment)
@@ -219,13 +217,21 @@ end
 
 is_line_number_node(expr) = isa(expr, LineNumberNode)
 
+# Evaluating a Name -------------------------------------------------------------------------------
+
+function is_name(exp)
+    return isa(exp, Symbol)
+end
+
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
 function metajulia_eval(expr, env = initial_environment())
     if is_line_number_node(expr)
-        return 
+        return
     elseif is_self_evaluating(expr)
         return expr
+    elseif is_name(expr)
+        return eval_name(expr, env)
     elseif is_call(expr)
         return eval_call(expr, env)
     elseif is_bool_operator(expr)
@@ -238,9 +244,6 @@ function metajulia_eval(expr, env = initial_environment())
         return eval_block(expr, env)
     elseif is_let(expr)
         return eval_let(expr, env)
-    elseif is_name(expr)
-        println("is_name")
-        return eval_name(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
