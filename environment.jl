@@ -23,7 +23,7 @@ end
 
 # Operations
 function make_environment(frame, env)
-  return (frame, env)
+  return push!(env, frame)
 end
 
 function augment_environment(names, values, env)

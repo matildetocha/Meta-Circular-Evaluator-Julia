@@ -56,7 +56,7 @@ function eval_call(expr, env)
     # Verify what type the call is, then process it
     func = eval_name(call_operator(expr), env)
     args = eval_exprs(call_operands(expr), env)
-        
+    
     # If the call is a primitive operation
     if is_primitive(func)
         return apply_primitive(func, args)
@@ -86,20 +86,20 @@ first_argument_gate(expr) = expr.args[1]
 second_argument_gate(expr) = expr.args[2]
 
 # Eval Boolean Operator
-function eval_and(expr)
-    return metajulia_eval(first_argument_gate(expr)) && metajulia_eval(second_argument_gate(expr))
+function eval_and(expr, env)
+    return metajulia_eval(first_argument_gate(expr), env) && metajulia_eval(second_argument_gate(expr), env)
 end
 
-function eval_or(expr)
-    return metajulia_eval(first_argument_gate(expr)) || metajulia_eval(second_argument_gate(expr))
+function eval_or(expr, env)
+    return metajulia_eval(first_argument_gate(expr), env) || metajulia_eval(second_argument_gate(expr), env)
 end
 
-function eval_bool_operator(expr)
+function eval_bool_operator(expr, env)
     if is_and(expr)
-        return eval_and(expr)
+        return eval_and(expr, env)
     end
     if is_or(expr)
-        return eval_or(expr)
+        return eval_or(expr, env)
     end
 end
 
@@ -219,7 +219,7 @@ function metajulia_eval(expr, env)
     elseif is_call(expr)
         return eval_call(expr, env)
     elseif is_bool_operator(expr)
-        return eval_bool_operator(expr)
+        return eval_bool_operator(expr, env)
     elseif is_if(expr)
         return eval_if(expr, env)
     elseif is_elseif(expr)
