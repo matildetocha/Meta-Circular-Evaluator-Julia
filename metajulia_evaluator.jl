@@ -18,14 +18,24 @@ end
 # Evaluating a Name -------------------------------------------------------------------------------
 
 function eval_name(name, env)
+    function lookup_in_frame(frame)
+        if isempty(frame)
+            return eval_name(name, env[2:end])
+        elseif name == frame[1]
+            return frame[2]
+        else
+            return eval_name(name, env[2:end])
+        end
+    end
+
     if isempty(env)
         return error("Unbound name -- EVAL-NAME ", name)
-    elseif env[1][1] == name
-        return env[1][2]
     else
-        return eval_name(name, env[2:end])
+        frame = env[1]
+        lookup_in_frame(frame)
     end
 end
+
 
 # Evaluating an Expression ------------------------------------------------------------------------
 
@@ -211,7 +221,7 @@ is_line_number_node(expr) = isa(expr, LineNumberNode)
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
-function metajulia_eval(expr, env)
+function metajulia_eval(expr, env = initial_environment())
     if is_line_number_node(expr)
         return 
     elseif is_self_evaluating(expr)
@@ -229,6 +239,7 @@ function metajulia_eval(expr, env)
     elseif is_let(expr)
         return eval_let(expr, env)
     elseif is_name(expr)
+        println("is_name")
         return eval_name(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
