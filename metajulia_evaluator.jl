@@ -182,7 +182,7 @@ end
 
 # Selector
 function let_names(expr) 
-    if is_block(expr)
+    if is_block(expr.args[1])
         return map(x -> x.args[1], expr.args[1].args)
     else
        return [expr.args[1].args[1]]
@@ -190,7 +190,7 @@ function let_names(expr)
 end
 
 function let_inits(expr)
-    if is_block(expr)
+    if is_block(expr.args[1])
         return map(x -> x.args[2], expr.args[1].args)
     else 
         return [expr.args[1].args[2]]
@@ -202,8 +202,11 @@ let_body(expr) = expr.args[2]
 # Eval Let
 function eval_let(expr, env)
     values = eval_exprs(let_inits(expr), env)
+    
     extended_environment = augment_environment(let_names(expr), values, env)
+
     return metajulia_eval(let_body(expr), extended_environment)
+
 end
 
 # Evaluating a Name -------------------------------------------------------------------------------
@@ -243,6 +246,7 @@ function metajulia_eval(expr, env = initial_environment())
     elseif is_block(expr)
         return eval_block(expr, env)
     elseif is_let(expr)
+        println("is leite")
         return eval_let(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
