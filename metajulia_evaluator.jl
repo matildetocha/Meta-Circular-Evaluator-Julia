@@ -202,14 +202,24 @@ let_body(expr) = expr.args[2]
 # Eval Let
 function eval_let(expr, env)
     values = eval_exprs(let_inits(expr), env)
-    
     extended_environment = augment_environment(let_names(expr), values, env)
 
     return metajulia_eval(let_body(expr), extended_environment)
 
 end
 
-# Evaluating a Name -------------------------------------------------------------------------------
+function eval_function(expr)
+    return map(
+        (f -> make_function(f.args[1][2:end], f[2:end])),
+        expr.args[1].args[2:end])
+end
+
+function make_function(parameters, body)
+    return [:function, parameters, body]
+end
+
+function_names(expr) = map(x -> x.args[1], expr.args[1])
+function_body(expr) = expr.args[1].args[2].args[2:end]
 
 # Predicate
 function is_let(expr) 
