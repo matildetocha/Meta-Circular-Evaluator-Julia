@@ -1,8 +1,8 @@
 # Primitives -------------------------------------------------------------------------
 
 # Constructor
-function make_primitive(symb)
-  return [:primitive, symb]
+function make_primitive(func)
+  return [:primitive, func]
 end
 
 # Predicate
