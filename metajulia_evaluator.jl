@@ -3,9 +3,28 @@
 include("environment.jl")
 include("primitives.jl")
 
+global global_environment = initial_environment()
+
 # -------------------------------------------------------------------------------------------------
 # - Eval
 # -------------------------------------------------------------------------------------------------
+
+# Evaluating a Line Number Node -------------------------------------------------------------------
+is_line_number_node(expr) = isa(expr, LineNumberNode)
+
+# Evaluating an Anonymous Function ---------------------------------------------------------------------------
+is_anonymous_function(expr) = expr.head == :(->)
+
+function eval_anonymous_funtion(expr)
+    if isa(expr.args[1], Symbol)
+        params = [expr.args[1]]
+    else
+        params = expr.args[1].args
+    end
+    
+    body = expr.args[2]
+    return Expr(:function, params, body) 
+end
 
 # Evaluating a Self-Evaluating Expression ---------------------------------------------------------
 
@@ -17,22 +36,17 @@ end
 
 # Evaluating a Name -------------------------------------------------------------------------------
 
-function eval_name(name, env)
-    function lookup_in_frame(frame)
-        if isempty(frame)
-            return eval_name(name, env[2:end])
-        elseif name == frame[1]
-            return frame[2]
-        else
-            return eval_name(name, env[2:end])
-        end
-    end
+# Predicate
+function is_name(exp)
+    return isa(exp, Symbol)
+end
 
+# Eval Name
+function eval_name(name, env)
     if isempty(env)
         return error("Unbound name -- EVAL-NAME ", name)
     else
-        frame = env[1]
-        lookup_in_frame(frame)
+        return env[name]
     end
 end
 
@@ -40,6 +54,7 @@ end
 # Evaluating an Expression ------------------------------------------------------------------------
 
 function eval_exprs(exprs, env)
+    println("EXPR: ", exprs)
     if isempty(exprs)
         return []
     else
@@ -85,28 +100,28 @@ function eval_call(expr, env)
     # Verify what type the call is, then process it
     func = eval_name(call_operator(expr), env)
     args = eval_exprs(call_operands(expr), env)
-    println("function_params: ", call_function_params(func))
+
+    println("FUNC NAME: ", call_operator(expr))
+    println("FUNC: ", func)
+    #println("FUNC BODY: ", func)
+    println("ARGS: ", args)
     
-    println("func: ", func)
-    println("args: ", args)
-    println("function_body: ", call_function_body(func))
-    
-    # If the call is a primitive operation
-    if is_primitive(func)
-        return apply_primitive(func, args)
+    if is_primitive(call_operator(expr))
+        func(args)
     else
-        extended_environment = augment_environment(call_function_params(func), args, env)
-        return metajulia_eval(call_function_body(func), extended_environment)
-    end
+        extended_environment = augment_environment(func.args[1], args, env)
+        return metajulia_eval(func.args[2], extended_environment)
+    end   
 end
 
-# Evaluating a Boolean Operator -------------------------------------------------------------------
 
+# Evaluating a Boolean Operator -------------------------------------------------------------------
+#! check this, change it to primitive
 # Predicates
 function is_bool_operator(expr)
     return is_and(expr) || is_or(expr)
 end
-  
+
 function is_and(expr)
     return expr.head == :(&&)
 end
@@ -204,12 +219,15 @@ function is_let(expr)
     return expr.head == :let
 end
 
-# Selector
+is_let_function(expr) = expr.args[1].head == :call
+
+# Selectors
 function let_names(expr) 
     if is_block(expr.args[1])
         return map(x -> x.args[1], expr.args[1].args)
+    elseif is_let_function(expr.args[1])
+        return [function_name(expr)]
     else
-        println("let_names: ", expr.args[1].args[1])
         return [expr.args[1].args[1]]
     end
 end
@@ -217,6 +235,8 @@ end
 function let_inits(expr)
     if is_block(expr.args[1])
         return map(x -> x.args[2], expr.args[1].args)
+    elseif is_let_function(expr.args[1])
+        return [:($(function_parameters(expr)) -> $(function_body(expr)))]
     else 
         println("let_inits: ", expr.args[1].args[2])
         return [expr.args[1].args[2]]
@@ -225,100 +245,47 @@ end
 
 let_body(expr) = expr.args[2]
 
+function_name(expr) = expr.args[1].args[1].args[1]
+function_parameters(expr) = expr.args[1].args[1].args[2]
+function_body(expr) = expr.args[1].args[2].args[2]
+
 # Eval Let
 function eval_let(expr, env)
-    #println(function_name(expr))
-    #println(function_arguments(expr))
-    #println(function_body(expr))
-
-    if (is_let_function(expr))
-        println("Expr before", expr)
-        expr_new = reform_function(expr)
-        println("Expr after", expr_new)
-    end
-
-    values = eval_exprs(let_inits(expr_new), env)
-    println("Names: ", let_names(expr_new))
-    println("Values: ", values)
-    extended_environment = augment_environment(let_names(expr_new), values, env)
+    println("INITS: ", let_inits(expr))
+    println("NAMES: ", let_names(expr))
+    
+    values = eval_exprs(let_inits(expr), env)
+    println("VALUES: ", values)
+    extended_environment = augment_environment(let_names(expr), values, env)
+    println("ex_env: ", extended_environment)
     return metajulia_eval(let_body(expr), extended_environment)
+
 end
 
-reform_function(expr) = Expr(:let, Expr(:(=), function_name(expr), Expr(:->, function_arguments(expr), function_body(expr))))
-function_name(expr) = expr.args[1].args[1].args[1]
-function_arguments(expr) = expr.args[1].args[1].args[2:end]
-function_body(expr) = expr.args[1].args[2].args[2:end]
+# Evaluating an Assignment ------------------------------------------------------------------------
 
-    
-
-#=Expr(:let, Expr(:(=), functionname, Expr(:->, arguments, Expr(:call,))))
-function eval_function(expr, env)
-    extended_environment = augment_environment(function_names(expr), functions(expr), env)
-    return metajulia_eval(function_body(expr), extended_environment) 
+# Predicate
+function is_assignment(expr)
+    return expr.head == :(=)
 end
 
+# Selectors
+assignment_name(expr) = expr.args[1]
 
-function functions(expr)
-    #println("Dentro de functions, body: ", function_body(expr.args))
-    #println("params do functions: ", function_params(expr.args))
-    if is_block(expr)
-        return map((f -> make_function(function_params(f), function_body(f))), expr.args)
-    else
-        println("MAKE FUNCTIOn")
-        println("params: ", function_params(expr))
-        println("body: ", function_body(expr))
-        return make_function(function_params(expr), function_body(expr))
-    end
+assignment_init(expr) = expr.args[2]
+
+# Eval Assignment
+function eval_assignment(expr, env)
+    value = metajulia_eval(assignment_init(expr), env)
+    name = assignment_name(expr)
+    global_environment = augment_environment([name], [value], env)
+    return value
 end
 
-get_function(expr) = expr.args[1].args[1]
-
-function_params(expr) = expr.args[1].args[1].args[2]
-
-function make_function(parameters, body)
-    return [[:function, [parameters, body]]]
-end
-
-function function_names(expr)
-    if is_block(expr.args[1])
-        return map(x -> x.args[1].args[1], expr.args[1].args)
-    else
-        return [expr.args[1].args[1].args[1]]
-    end
-    
-end
-
-function function_body(expr)
-    println("")
-    println("body expr - ", expr)
-    return expr.args[1].args[2].args[2:end]
-end
-
-=#
-
-function is_lambda(expr)
-    return expr.head == :(->)
-end
-
-function is_let_function(expr)
-    return length(expr.args) > 1
-end
-
-is_function(expr) = expr[1]== :function
-
-# Evaluating a Line Number Node -------------------------------------------------------------------
-
-is_line_number_node(expr) = isa(expr, LineNumberNode)
-
-# Evaluating a Name -------------------------------------------------------------------------------
-
-function is_name(exp)
-    return isa(exp, Symbol)
-end
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
-function metajulia_eval(expr, env = initial_environment())
+function metajulia_eval(expr, env = global_environment)
     if is_line_number_node(expr)
         return
     elseif is_self_evaluating(expr)
@@ -337,8 +304,10 @@ function metajulia_eval(expr, env = initial_environment())
         return eval_block(expr, env)
     elseif is_let(expr)
         return eval_let(expr, env)
-    elseif is_lambda(expr)
-        return expr
+    elseif is_assignment(expr)
+        return eval_assignment(expr, env)
+    elseif is_anonymous_function(expr)
+        return eval_anonymous_funtion(expr)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
@@ -348,6 +317,7 @@ end
 # -------------------------------------------------------------------------------------------------
 # - REPL
 # -------------------------------------------------------------------------------------------------
+
 function metajulia_repl()
     while true
         print(">> ")
@@ -366,6 +336,10 @@ function metajulia_repl()
             return
         end
 
+        if (!isa(expr, Expr))
+            break
+        end
+
         while expr.head == :incomplete
             line = readline()
 
@@ -376,7 +350,8 @@ function metajulia_repl()
             expr = Meta.parse(input)
         end
 
-        result = metajulia_eval(expr, initial_environment())
+        result = metajulia_eval(expr, global_environment)
+        #write(stdout, result)
         println(result)
     end
 end
