@@ -177,6 +177,8 @@ is_let(expr) = expr.head == :let
 
 is_let_function(expr) = expr.args[1].head == :call
 
+is_variable(expr) = isa(expr.args[1], Symbol)
+
 # Selectors
 function_name(expr) = expr.args[1].args[1]
 
@@ -186,34 +188,36 @@ function_body(expr) = expr.args[2].args[2]
 
 var_name(expr) = expr.args[1]
 
+var_init(expr) = expr.args[2]
+
 let_assignment(expr) = expr.args[1]
 
 let_body(expr) = expr.args[2]
 
 function let_names(expr) 
     if is_assignment(expr) 
-        if isa(expr.args[1], Symbol)
+        if is_variable(expr)
             return [var_name(expr)]
         else    
             return [function_name(expr)]
         end
     elseif is_block(expr)
-        return [isa(arg.args[1], Symbol) ? var_name(arg) : function_name(arg) for arg in expr.args]
+        return [is_variable(arg) ? var_name(arg) : function_name(arg) for arg in expr.args]
     end
 end
  
 function let_inits(expr)
     if is_assignment(expr) 
-        if isa(expr.args[1], Symbol)
-            return [expr.args[2]]
+        if is_variable(expr)
+            return [var_init(expr)]
         else
             return [:($(function_parameters(expr)) -> $(function_body(expr)))]
         end
     elseif is_block(expr)
-        return [isa(arg.args[1], Symbol) ? arg.args[2] : :($(function_parameters(arg)) -> $(function_body(arg))) for arg in expr.args]
+        return [is_variable(arg) ? var_init(arg) : :($(function_parameters(arg)) -> $(function_body(arg))) for arg in expr.args]
     end
 end
-
+let x = 1, y(x) = x+1; y(x+1) end
 
 # Eval Let
 function eval_let(expr, env)
@@ -231,16 +235,25 @@ end
 is_assignment(expr) = expr.head == :(=)
 
 # Selectors
-assignment_name(expr) = expr.args[1]
+#assignment_name(expr) = expr.args[1]
+#var_name(expr) = expr.args[1]
 
-assignment_init(expr) = expr.args[2]
+assignment_name(expr) =  is_variable(expr) ? var_name(expr) : function_name(expr)
+
+assignment_init(expr) = is_variable(expr) ? var_init(expr) : :($(function_parameters(expr)) -> $(function_body(expr)))
 
 # Eval Assignment
 function eval_assignment(expr, env)
+    #println("Assignment: ", expr, " ")
+    #println("init: ", assignment_init(expr), " ")
+    #println("name: ", assignment_name(expr), " ")
+    println("is leite")
+    println("expr: ", expr, " ")
     value = metajulia_eval(assignment_init(expr), env)
     name = assignment_name(expr)
     global_environment = augment_environment([name], [value], env)
-    return value
+    println("global_environment: ", global_environment, " ")
+    return is_variable(expr) ? value : "<function>"
 end
 
 # Evaluating an Anonymous Function ---------------------------------------------------------------------------
