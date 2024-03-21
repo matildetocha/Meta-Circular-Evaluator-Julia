@@ -44,6 +44,10 @@ primitive_name(prim) = prim[1]
 
 # ------------------------------------------------------------------------------------
 
+function make_primitive(func)
+  return [:primitive, func]
+end
+
 function initial_bindings()
   return primitives
 end

@@ -16,12 +16,7 @@ is_line_number_node(expr) = isa(expr, LineNumberNode)
 is_anonymous_function(expr) = expr.head == :(->)
 
 function eval_anonymous_funtion(expr)
-    if isa(expr.args[1], Symbol)
-        params = [expr.args[1]]
-    else
-        params = expr.args[1].args
-    end
-    
+    params = expr.args[1]
     body = expr.args[2]
     return Expr(:function, params, body) 
 end
@@ -223,30 +218,43 @@ is_let_function(expr) = expr.args[1].head == :call
 
 # Selectors
 function let_names(expr) 
-    if is_block(expr.args[1])
-        return map(x -> x.args[1], expr.args[1].args)
-    elseif is_let_function(expr.args[1])
-        return [function_name(expr)]
-    else
-        return [expr.args[1].args[1]]
+    if is_assignment(expr.args[1]) 
+        if isa(expr.args[1].args[1], Symbol)
+            return [expr.args[1].args[1]]
+        else    
+            return [function_name(expr)]
+        end
+    elseif is_block(expr.args[1])
+        println("is block NAMES _-----------------")
+        println(map(x -> is_let_function(x) ? [:($(function_parameters(x)) -> $(function_body(x)))] : x.args[2], expr.args[1].args))        
+       
+        return map(x -> is_let_function(expr) ? function_name(expr) : x.args[1], expr.args[1].args)
     end
 end
-
+ 
 function let_inits(expr)
-    if is_block(expr.args[1])
-        return map(x -> x.args[2], expr.args[1].args)
-    elseif is_let_function(expr.args[1])
-        return [:($(function_parameters(expr)) -> $(function_body(expr)))]
-    else 
-        println("let_inits: ", expr.args[1].args[2])
-        return [expr.args[1].args[2]]
+    print("EXPR INITS: ")
+    dump(expr)
+    if is_assignment(expr.args[1]) 
+        if isa(expr.args[1].args[1], Symbol)
+            println("is var assignment")
+            return [expr.args[1].args[2]]
+        else
+            println("is func assignment")
+            return [:($(function_parameters(expr)) -> $(function_body(expr)))]
+        end
+    elseif is_block(expr.args[1])
+        println("is block inits -----------------")
+        println([[:($(function_parameters(arg)) -> $(function_body(arg)))] for arg in expr.args[1].args if is_assignment(arg)])
+        println(map(x -> is_let_function(x) ? [:($(function_parameters(x)) -> $(function_body(x)))] : x.args[2], expr.args[1].args))        
+        return map(x -> is_let_function(expr) ? [:($(function_parameters(expr)) -> $(function_body(expr)))] : x.args[2], expr.args[1].args)
     end
 end
 
 let_body(expr) = expr.args[2]
 
 function_name(expr) = expr.args[1].args[1].args[1]
-function_parameters(expr) = expr.args[1].args[1].args[2]
+function_parameters(expr) = expr.args[1].args[1].args[2:end]
 function_body(expr) = expr.args[1].args[2].args[2]
 
 # Eval Let
