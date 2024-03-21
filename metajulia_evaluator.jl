@@ -12,15 +12,6 @@ global global_environment = initial_environment()
 # Evaluating a Line Number Node -------------------------------------------------------------------
 is_line_number_node(expr) = isa(expr, LineNumberNode)
 
-# Evaluating an Anonymous Function ---------------------------------------------------------------------------
-is_anonymous_function(expr) = expr.head == :(->)
-
-function eval_anonymous_funtion(expr)
-    params = expr.args[1]
-    body = expr.args[2]
-    return Expr(:function, params, body) 
-end
-
 # Evaluating a Self-Evaluating Expression ---------------------------------------------------------
 
 # Predicate
@@ -32,9 +23,7 @@ end
 # Evaluating a Name -------------------------------------------------------------------------------
 
 # Predicate
-function is_name(exp)
-    return isa(exp, Symbol)
-end
+is_name(exp) = isa(exp, Symbol)
 
 # Eval Name
 function eval_name(name, env)
@@ -49,7 +38,6 @@ end
 # Evaluating an Expression ------------------------------------------------------------------------
 
 function eval_exprs(exprs, env)
-    println("EXPR: ", exprs)
     if isempty(exprs)
         return []
     else
@@ -62,10 +50,7 @@ end
 # Evaluating a Call -------------------------------------------------------------------------------
 
 # Predicate
-function is_call(expr)
-    println("IS call: ", expr)
-    return expr.head == :call
-end
+is_call(expr) = expr.head == :call
 
 # Selectors
 call_operator(expr) = expr.args[1]
@@ -95,11 +80,6 @@ function eval_call(expr, env)
     # Verify what type the call is, then process it
     func = eval_name(call_operator(expr), env)
     args = eval_exprs(call_operands(expr), env)
-
-    println("FUNC NAME: ", call_operator(expr))
-    println("FUNC: ", func)
-    #println("FUNC BODY: ", func)
-    println("ARGS: ", args)
     
     if is_primitive(call_operator(expr))
         func(args)
@@ -111,19 +91,13 @@ end
 
 
 # Evaluating a Boolean Operator -------------------------------------------------------------------
-#! check this, change it to primitive
+
 # Predicates
-function is_bool_operator(expr)
-    return is_and(expr) || is_or(expr)
-end
+is_and(expr) = expr.head == :(&&)
 
-function is_and(expr)
-    return expr.head == :(&&)
-end
+is_or(expr) = expr.head == :(||)
 
-function is_or(expr)
-    return expr.head == :(||)
-end
+is_bool_operator(expr) = is_and(expr) || is_or(expr)
 
 # Selectors
 first_argument_gate(expr) = expr.args[1]
@@ -142,30 +116,21 @@ end
 function eval_bool_operator(expr, env)
     if is_and(expr)
         return eval_and(expr, env)
-    end
-    if is_or(expr)
+    elseif is_or(expr)
         return eval_or(expr, env)
     end
 end
 
 # Evaluating an If-Elseif-Else --------------------------------------------------------------------
 
-# Predicates:(x(1))
-function is_if(expr)
-    return expr.head == :if
-end
+# Predicates
+is_if(expr) = expr.head == :if
 
-function is_elseif(expr)
-    return expr.head == :elseif 
-end
+is_elseif(expr) = expr.head == :elseif 
 
-function is_true(value)
-    return value == true
-end
+is_true(value) = value == true
 
-function is_false(value)
-    return value == false
-end
+is_false(value) = value == false
 
 # Selectors
 if_condition(expr) = expr.args[1]
@@ -186,9 +151,7 @@ end
 # Evaluating a Block ------------------------------------------------------------------------------
 
 # Predicate
-function is_block(expr)
-    return expr.head == :block  
-end
+is_block(expr) = expr.head == :block  
 
 # Selector
 block_expressions(block) = block.args
@@ -209,63 +172,55 @@ end
 
 # Evaluating a Let --------------------------------------------------------------------------------
 
-# Predicate
-function is_let(expr) 
-    return expr.head == :let
-end
+# Predicates
+is_let(expr) = expr.head == :let
 
 is_let_function(expr) = expr.args[1].head == :call
 
 # Selectors
+function_name(expr) = expr.args[1].args[1]
+
+function_parameters(expr) = expr.args[1].args[2:end]
+
+function_body(expr) = expr.args[2].args[2]
+
+var_name(expr) = expr.args[1]
+
+let_assignment(expr) = expr.args[1]
+
+let_body(expr) = expr.args[2]
+
 function let_names(expr) 
-    if is_assignment(expr.args[1]) 
-        if isa(expr.args[1].args[1], Symbol)
-            return [expr.args[1].args[1]]
+    if is_assignment(expr) 
+        if isa(expr.args[1], Symbol)
+            return [var_name(expr)]
         else    
             return [function_name(expr)]
         end
-    elseif is_block(expr.args[1])
-        println("is block NAMES _-----------------")
-        println(map(x -> is_let_function(x) ? [:($(function_parameters(x)) -> $(function_body(x)))] : x.args[2], expr.args[1].args))        
-       
-        return map(x -> is_let_function(expr) ? function_name(expr) : x.args[1], expr.args[1].args)
+    elseif is_block(expr)
+        return [isa(arg.args[1], Symbol) ? var_name(arg) : function_name(arg) for arg in expr.args]
     end
 end
  
 function let_inits(expr)
-    print("EXPR INITS: ")
-    dump(expr)
-    if is_assignment(expr.args[1]) 
-        if isa(expr.args[1].args[1], Symbol)
-            println("is var assignment")
-            return [expr.args[1].args[2]]
+    if is_assignment(expr) 
+        if isa(expr.args[1], Symbol)
+            return [expr.args[2]]
         else
-            println("is func assignment")
             return [:($(function_parameters(expr)) -> $(function_body(expr)))]
         end
-    elseif is_block(expr.args[1])
-        println("is block inits -----------------")
-        println([[:($(function_parameters(arg)) -> $(function_body(arg)))] for arg in expr.args[1].args if is_assignment(arg)])
-        println(map(x -> is_let_function(x) ? [:($(function_parameters(x)) -> $(function_body(x)))] : x.args[2], expr.args[1].args))        
-        return map(x -> is_let_function(expr) ? [:($(function_parameters(expr)) -> $(function_body(expr)))] : x.args[2], expr.args[1].args)
+    elseif is_block(expr)
+        return [isa(arg.args[1], Symbol) ? arg.args[2] : :($(function_parameters(arg)) -> $(function_body(arg))) for arg in expr.args]
     end
 end
 
-let_body(expr) = expr.args[2]
-
-function_name(expr) = expr.args[1].args[1].args[1]
-function_parameters(expr) = expr.args[1].args[1].args[2:end]
-function_body(expr) = expr.args[1].args[2].args[2]
 
 # Eval Let
 function eval_let(expr, env)
-    println("INITS: ", let_inits(expr))
-    println("NAMES: ", let_names(expr))
-    
-    values = eval_exprs(let_inits(expr), env)
-    println("VALUES: ", values)
-    extended_environment = augment_environment(let_names(expr), values, env)
-    println("ex_env: ", extended_environment)
+    assignment_expr = let_assignment(expr)
+    values = eval_exprs(let_inits(assignment_expr), env)
+    extended_environment = augment_environment(let_names(assignment_expr), values, env)
+
     return metajulia_eval(let_body(expr), extended_environment)
 
 end
@@ -273,9 +228,7 @@ end
 # Evaluating an Assignment ------------------------------------------------------------------------
 
 # Predicate
-function is_assignment(expr)
-    return expr.head == :(=)
-end
+is_assignment(expr) = expr.head == :(=)
 
 # Selectors
 assignment_name(expr) = expr.args[1]
@@ -290,6 +243,14 @@ function eval_assignment(expr, env)
     return value
 end
 
+# Evaluating an Anonymous Function ---------------------------------------------------------------------------
+is_anonymous_function(expr) = expr.head == :(->)
+
+function eval_anonymous_funtion(expr)
+    params = expr.args[1]
+    body = expr.args[2]
+    return Expr(:function, params, body) 
+end
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
@@ -345,7 +306,9 @@ function metajulia_repl()
         end
 
         if (!isa(expr, Expr))
-            break
+            result = metajulia_eval(expr, global_environment)
+            println(result)
+            continue
         end
 
         while expr.head == :incomplete
