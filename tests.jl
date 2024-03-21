@@ -9,7 +9,8 @@ function test_project()
   test_conditional()
   test_blocks()
   test_let()
-  # test_assignment()    
+  test_assignment()   
+  test_anonymous_functions() 
 end
 
 function test_self_evaluating()
@@ -66,6 +67,37 @@ function test_let()
 end
 
 function test_assignment()
+  println(">> Evaluating: Assignment")
+  @test metajulia_eval(:(x = 1+2)) == 3
+  @test metajulia_eval(:(x+2)) == 5
+  @test metajulia_eval(:(triple(a) = a + a + a)) == "<function>"
+  @test metajulia_eval(:(triple(x+3))) == 18
+  @test metajulia_eval(:(baz = 3)) == 3
+  @test metajulia_eval(:(let x = 0
+                          baz = 5
+                          end + baz)) == 8
+  @test metajulia_eval(:(let ; baz = 6 end + baz)) == 9
+
+  @test metajulia_eval(:(sum(f, a, b) =
+  a > b ?
+  0 :
+  f(a) + sum(f, a + 1, b))) == "<function>"
+  @test metajulia_eval(:(sum(triple, 1, 10))) == 165
+end
+
+function test_anonymous_functions()
+  @test metajulia_eval(:((x -> x + 1)(2))) == 3
+  @test metajulia_eval(:((() -> 5)())) == 5
+  @test metajulia_eval(:(((x, y) -> x + y)(1, 2))) == 3
+  @test metajulia_eval(:(sum(x -> x*x, 1, 10))) == 385
+
+  @test metajulia_eval(:(incr =
+                          let priv_counter = 0
+                          () -> priv_counter = priv_counter + 1
+                          end)) == "<function>"
+  @test metajulia_eval(:(incr())) == 1
+  @test metajulia_eval(:(incr())) == 2
+  @test metajulia_eval(:(incr())) == 3
 end
 
 @testset "Test Project" begin
