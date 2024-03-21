@@ -1,6 +1,7 @@
 primitives = Dict{Symbol, Any}(
   # Arithmetic Operators
   :(+) => ((args...) -> apply_primitive(make_primitive(+), args...)),
+  :(sum) => ((args...) -> apply_primitive(make_primitive(sum), args...)),
   :(-) => ((args...) -> apply_primitive(make_primitive(-), args...)),
   :(*) => ((args...) -> apply_primitive(make_primitive(*), args...)),
   :(/) => ((args...) -> apply_primitive(make_primitive(/), args...)),
@@ -10,32 +11,31 @@ primitives = Dict{Symbol, Any}(
   # Bitwise Operators
   :(~) => ((args...) -> apply_primitive(make_primitive(~), args...)),
   :(&) => ((args...) -> apply_primitive(make_primitive(&), args...)),
-  # :(|) => make_primitive(|),
-  # :(xor) => make_primitive(xor),
-  # :(nand) => make_primitive(nand),
-  # :(nor) => make_primitive(nor),
-  # :(>>>) => make_primitive(>>>),
-  # :(>>) => make_primitive(>>),
-  # :(<<) => make_primitive(<<),
+  :(|) => ((args...) -> apply_primitive(make_primitive(|), args...)),
+  :(xor) => ((args...) -> apply_primitive(make_primitive(xor), args...)),
+  :(nand) => ((args...) -> apply_primitive(make_primitive(nand), args...)),
+  :(nor) => ((args...) -> apply_primitive(make_primitive(nor), args...)),
+  :(>>>) => ((args...) -> apply_primitive(make_primitive(>>>), args...)),
+  :(>>) => ((args...) -> apply_primitive(make_primitive(>>), args...)),
+  :(<<) => ((args...) -> apply_primitive(make_primitive(<<), args...)),
   # # Numeric Comparisons
-  # :(==) => make_primitive(==),
-  # :(!=) => make_primitive(==),
+  :(==) => ((args...) -> apply_primitive(make_primitive(==), args...)),
+  :(!=) => ((args...) -> apply_primitive(make_primitive(!=), args...)),
   :(>) => ((args...) -> apply_primitive(make_primitive(>), args...)),
   :(>=) => ((args...) -> apply_primitive(make_primitive(>=), args...)),
   :(<) => ((args...) -> apply_primitive(make_primitive(<), args...)),
   :(<=) => ((args...) -> apply_primitive(make_primitive(<=), args...)),
   # Print and Println
-  # :(print) => make_primitive(print),
-  # :(println) => make_primitive(println),
+  :(print) => ((args...) -> apply_primitive(make_primitive(print), args...)),
+  :(println) => ((args...) -> apply_primitive(make_primitive(println), args...))
 )
 
 # Primitives -------------------------------------------------------------------------
 # Predicate
-function is_primitive(func)
-  println("is_primitive? ")
-  println("haskey(primitives, func): ", haskey(primitives, func))
-  return haskey(primitives, func)
-end
+is_primitive(func) = haskey(primitives, func)
+
+# Constructor
+make_primitive(func) = [:primitive, func]
 
 # Selectors
 primitive_operation(prim) = prim[2]
@@ -43,10 +43,6 @@ primitive_operation(prim) = prim[2]
 primitive_name(prim) = prim[1]
 
 # ------------------------------------------------------------------------------------
-
-function make_primitive(func)
-  return [:primitive, func]
-end
 
 function initial_bindings()
   return primitives

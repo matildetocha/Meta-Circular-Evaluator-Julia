@@ -3,9 +3,7 @@ include("primitives.jl")
 # Frames -----------------------------------------------------------------------------
 # ! provavelmente ja nao e preciso, REVER
 # Constructor
-function make_frame(names, values)
-  return (names, values)
-end
+make_frame(names, values) = (names, values)
 
 # Selectors
 frame_variables(frame) = frame[1]
@@ -15,18 +13,16 @@ frame_names(frame) = frame[2]
 # Environment ------------------------------------------------------------------------
 # ((name-0 . value-0) (name-1 . value-1) ... (name-n . value-n))
 
-# Constructor
-function empty_environment()
-  return Dict{Symbol, Any}()
-end
+empty_environment() = Dict{Symbol, Any}()
 
-# Operations
+# Constructor
 function make_environment(name, value, env)
   env[name] = value
-
+  
   return env
 end
 
+# Operations
 function augment_environment(names, values, env)
   if isempty(names)
     return env
