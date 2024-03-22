@@ -17,9 +17,10 @@ empty_environment() = Dict{Symbol, Any}()
 
 # Constructor
 function make_environment(name, value, env)
-  env[name] = value
+  new_env = deepcopy(env)
+  new_env[name] = value
   
-  return env
+  return new_env
 end
 
 # Operations
@@ -27,6 +28,14 @@ function augment_environment(names, values, env)
   if isempty(names)
     return env
   else
+    #=
+    println("names: ", names)
+    println("names[1]: ", names[1])
+    println("names[2]: ", names[2:end])
+    println("values: ", values) 
+    println("values[1]: ", values[1])
+    println("values[2:end]: ", values[2:end])
+    =#
     return augment_environment(names[2:end], values[2:end], make_environment(names[1], values[1], env))
   end
 end

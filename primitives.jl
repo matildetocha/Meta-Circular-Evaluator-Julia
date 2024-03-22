@@ -1,7 +1,6 @@
 primitives = Dict{Symbol, Any}(
   # Arithmetic Operators
   :(+) => ((args...) -> apply_primitive(make_primitive(+), args...)),
-  :(sum) => ((args...) -> apply_primitive(make_primitive(sum), args...)),
   :(-) => ((args...) -> apply_primitive(make_primitive(-), args...)),
   :(*) => ((args...) -> apply_primitive(make_primitive(*), args...)),
   :(/) => ((args...) -> apply_primitive(make_primitive(/), args...)),

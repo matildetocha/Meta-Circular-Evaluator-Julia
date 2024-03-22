@@ -3,14 +3,12 @@ import Base.show
 include("environment.jl")
 include("primitives.jl")
 
-global global_environment = initial_environment()
-
 struct MetaJuliaFuncion
     func
     params
     body
 end
-Base.show(io::IO, result::MetaJuliaFuncion) = println(io, "<function>")
+Base.show(io::IO, result::MetaJuliaFuncion) = print(io, "<function>")
 
 # -------------------------------------------------------------------------------------------------
 # - Eval
@@ -85,17 +83,24 @@ env)))
 =#
 function eval_call(expr, env)
     # Verify what type the call is, then process it
-    println("EXPR: ", expr, " with type: ", typeof(expr))
+    #println("EXPR: ", expr, " with type: ", typeof(expr))
     println("call operator: ", call_operator(expr))
-    println("Env------------------------------------: ", env)
+    #println("Env Call---------------------------------: ", env)
 
     func = eval_name(call_operator(expr), env)
+    println("func :", func)
     args = eval_exprs(call_operands(expr), env)
-    
-    
+    println("args: ", args)
+    println("call_operator(expr): ", call_operator(expr))
+    println("primiti ", is_primitive(call_operator(expr)))
+    println(haskey(primitives, call_operator(expr)))
+    println("ENV____________________ ", env)
     if is_primitive(call_operator(expr))
+        println("call inside is primitive ", call_operator(expr))
         func(args)
     else
+        println("func :", func.params)
+        println("args :", func.body)
         extended_environment = augment_environment(func.params, args, env)
         return metajulia_eval(func.body, extended_environment)
     end   
@@ -230,13 +235,30 @@ function let_inits(expr)
     end
 end
 
+#=
+let x = 0
+    baz = 5
+end
+
+=#
+
+make_let(name, inits) = :(let $(name) = $(inits) end)
+
 # Eval Let
 function eval_let(expr, env)
     assignment_expr = let_assignment(expr)
     values = eval_exprs(let_inits(assignment_expr), env)
     extended_environment = augment_environment(let_names(assignment_expr), values, env)
+    println("VALUES: ", values)
+    println("NAMES: ", let_names(assignment_expr))
+    println("BODY: ", let_body(expr))
+    println("EXTENDED ENV -------------------------- ", extended_environment)
+    println("ENV --------------------------- ", env)
 
-    return metajulia_eval(let_body(expr), extended_environment)
+    eval_body = metajulia_eval(let_body(expr), extended_environment)
+    println("eval_body: ", eval_body)
+
+    return eval_body
 
 end
 
@@ -252,16 +274,18 @@ assignment_init(expr) = is_variable(expr) ? var_init(expr) : :($(function_parame
 
 # Eval Assignment
 function eval_assignment(expr, env)
-    #println("Assignment: ", expr, " ")
+    println("Assignment: ", expr, " ")
     #println("init: ", assignment_init(expr), " ")
     #println("name: ", assignment_name(expr), " ")
     #println("expr EVAL ASSIGNEMT: ", expr, " ")
-
+    
     value = metajulia_eval(assignment_init(expr), env)
     name = assignment_name(expr)
-    global_environment = augment_environment([name], [value], env)
+    extended_environment = augment_environment([name], [value], env)
+    #println("Env------------------------------------: ", global_environment)
     #println("global_environment: ", global_environment, " ")
-    return is_variable(expr) ? value : "<function>"
+    
+    return metajulia_eval(value, extended_environment)
 end
 
 # Evaluating an Anonymous Function ---------------------------------------------------------------------------
@@ -275,7 +299,7 @@ end
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
-function metajulia_eval(expr, env = global_environment)
+function metajulia_eval(expr, env = initial_bindings())
     if is_line_number_node(expr)
         return
     elseif is_self_evaluating(expr)
@@ -309,6 +333,8 @@ end
 # -------------------------------------------------------------------------------------------------
 
 function metajulia_repl()
+    global_environment = initial_environment()
+    
     while true
         print(">> ")
         
