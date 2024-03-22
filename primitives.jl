@@ -30,6 +30,7 @@ primitives = Dict{Symbol, Any}(
 )
 
 # Primitives -------------------------------------------------------------------------
+
 # Predicate
 is_primitive(func) = haskey(primitives, func)
 
@@ -41,10 +42,11 @@ primitive_operation(prim) = prim[2]
 
 primitive_name(prim) = prim[1]
 
-# ------------------------------------------------------------------------------------
+# Basic Operations -------------------------------------------------------------------
 
 function initial_bindings()
-  return primitives
+  inits = deepcopy(primitives)
+  return inits
 end
 
 function apply_primitive(prim, args)
