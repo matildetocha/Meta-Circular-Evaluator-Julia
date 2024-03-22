@@ -1,9 +1,16 @@
 # Julia Meta-Circular Evaluator 
-
+import Base.show
 include("environment.jl")
 include("primitives.jl")
 
 global global_environment = initial_environment()
+
+struct MetaJuliaFuncion
+    func
+    params
+    body
+end
+Base.show(io::IO, result::MetaJuliaFuncion) = println(io, "<function>")
 
 # -------------------------------------------------------------------------------------------------
 # - Eval
@@ -78,14 +85,19 @@ env)))
 =#
 function eval_call(expr, env)
     # Verify what type the call is, then process it
+    println("EXPR: ", expr, " with type: ", typeof(expr))
+    println("call operator: ", call_operator(expr))
+    println("Env------------------------------------: ", env)
+
     func = eval_name(call_operator(expr), env)
     args = eval_exprs(call_operands(expr), env)
+    
     
     if is_primitive(call_operator(expr))
         func(args)
     else
-        extended_environment = augment_environment(func.args[1], args, env)
-        return metajulia_eval(func.args[2], extended_environment)
+        extended_environment = augment_environment(func.params, args, env)
+        return metajulia_eval(func.body, extended_environment)
     end   
 end
 
@@ -217,7 +229,6 @@ function let_inits(expr)
         return [is_variable(arg) ? var_init(arg) : :($(function_parameters(arg)) -> $(function_body(arg))) for arg in expr.args]
     end
 end
-let x = 1, y(x) = x+1; y(x+1) end
 
 # Eval Let
 function eval_let(expr, env)
@@ -235,9 +246,6 @@ end
 is_assignment(expr) = expr.head == :(=)
 
 # Selectors
-#assignment_name(expr) = expr.args[1]
-#var_name(expr) = expr.args[1]
-
 assignment_name(expr) =  is_variable(expr) ? var_name(expr) : function_name(expr)
 
 assignment_init(expr) = is_variable(expr) ? var_init(expr) : :($(function_parameters(expr)) -> $(function_body(expr)))
@@ -247,12 +255,12 @@ function eval_assignment(expr, env)
     #println("Assignment: ", expr, " ")
     #println("init: ", assignment_init(expr), " ")
     #println("name: ", assignment_name(expr), " ")
-    println("is leite")
-    println("expr: ", expr, " ")
+    #println("expr EVAL ASSIGNEMT: ", expr, " ")
+
     value = metajulia_eval(assignment_init(expr), env)
     name = assignment_name(expr)
     global_environment = augment_environment([name], [value], env)
-    println("global_environment: ", global_environment, " ")
+    #println("global_environment: ", global_environment, " ")
     return is_variable(expr) ? value : "<function>"
 end
 
@@ -262,7 +270,7 @@ is_anonymous_function(expr) = expr.head == :(->)
 function eval_anonymous_funtion(expr)
     params = expr.args[1]
     body = expr.args[2]
-    return Expr(:function, params, body) 
+    return MetaJuliaFuncion(:function, params, body)
 end
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
@@ -320,7 +328,8 @@ function metajulia_repl()
 
         if (!isa(expr, Expr))
             result = metajulia_eval(expr, global_environment)
-            println(result)
+            show(result)
+            println("")
             continue
         end
 
@@ -333,9 +342,9 @@ function metajulia_repl()
             # Evaluate the input
             expr = Meta.parse(input)
         end
-
+                
         result = metajulia_eval(expr, global_environment)
-        #write(stdout, result)
-        println(result)
+        show(result)
+        println("")
     end
 end
