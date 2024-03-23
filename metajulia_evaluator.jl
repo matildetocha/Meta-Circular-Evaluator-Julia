@@ -88,30 +88,31 @@ function eval_call(expr, env)
     if isa(expr.args[1], Symbol)
         func = eval_name(call_operator(expr), env) 
     else #if is_anonymous_function(expr.args[1])
-        println("ANONYMOUS FUNCTION")
-        println("anonymous_param ", expr.args[1].args[1])
-        println("anonymous_body ", expr.args[1].args[2].args[2])
-        println("anonymous_func ", :($(expr.args[1].args[1]) -> $(expr.args[1].args[2].args[2])))
+        #println("ANONYMOUS FUNCTION")
+        #println("anonymous_param ", expr.args[1].args[1])
+        #println("anonymous_body ", expr.args[1].args[2].args[2])
+        #println("anonymous_func ", :($(expr.args[1].args[1]) -> $(expr.args[1].args[2].args[2])))
         anonymous_param = isa(expr.args[1].args[1], Symbol) ? [expr.args[1].args[1]] : expr.args[1].args[1].args
         anonymous_body = expr.args[1].args[2].args[2]
         anonymous_func = :($(anonymous_param) -> $(anonymous_body))
-
+        
         extended_environment = augment_environment([:anonymous], [eval_anonymous_funtion(anonymous_func)], env)
         func = eval_name(:anonymous, extended_environment)
-        if args == []
+        if args == [] || isa(args, Symbol)
+            #println("args -: ", args)
+            #println("voltei??'")
             args = [args]
         end
-
     end
 
     if is_primitive(call_operator(expr))
         return func(args)
     else
-        println("else") 
-        println("func: ", func)
-        println("ARGS------------: ", args)
-        println("func par: ", func.params)
-        println("func bod: ", func.body)
+        #println("else") 
+        #println("func: ", func)
+        #println("ARGS------------: ", args)
+        #println("func par: ", func.params)
+        #println("func bod: ", func.body)
         extended_environment = augment_environment(func.params, args, env)
         return metajulia_eval(func.body, extended_environment)
     end   
@@ -290,6 +291,8 @@ function eval_anonymous_funtion(expr)
     body = expr.args[2]
     if (params == Expr[:(())])
         params = [:¬]  
+    elseif (isa(params, Symbol))
+        params = [params]        
     end
 
     return MetaJuliaFunction(:function, params, body)
