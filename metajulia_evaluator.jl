@@ -83,8 +83,18 @@ env)))
 =#
 function eval_call(expr, env)
     # Verify what type the call is, then process it
-    func = eval_name(call_operator(expr), env)
     args = eval_exprs(call_operands(expr), env)
+    
+    if isa(expr.args[1], Symbol)
+        func = eval_name(call_operator(expr), env) 
+    else #if is_anonymous_function(expr.args[1])
+        anonymous_param = [expr.args[1].args[1]]
+        anonymous_body = expr.args[1].args[2].args[2]
+        anonymous_func = :($(anonymous_param) -> $(anonymous_body))
+
+        extended_environment = augment_environment([:anonymous], [eval_anonymous_funtion(anonymous_func)], env)
+        func = eval_name(:anonymous, extended_environment)
+    end
 
     if is_primitive(call_operator(expr))
         return func(args)
@@ -248,8 +258,12 @@ assignment_init(expr) = is_variable(expr) ? var_init(expr) : :($(function_parame
 
 # Eval Assignment
 function eval_assignment(expr, env)
+    println("Inside Eval Assignment: ", expr)
+    println("assignment_init: ", assignment_init(expr))
     value = metajulia_eval(assignment_init(expr), env)
     name = assignment_name(expr)
+    println("VALUE: ", value)
+    println("NAME: ", name)
     augment_environment([name], [value], env)
     
     return value
@@ -261,7 +275,6 @@ is_anonymous_function(expr) = expr.head == :(->)
 function eval_anonymous_funtion(expr)
     params = expr.args[1]
     body = expr.args[2]
-    
     return MetaJuliaFunction(:function, params, body)
 end
 
