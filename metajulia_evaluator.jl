@@ -278,6 +278,28 @@ function eval_anonymous_funtion(expr)
     return MetaJuliaFunction(:function, params, body)
 end
 
+# Reflection -----------------------------------------------------
+
+is_quasiquote(expr) = isa(expr, QuoteNode) || expr.head == :quote
+
+function eval_quasiquote(expr, env)
+    if isa(expr, QuoteNode)
+        println("1")
+        return expr.value
+    else
+        println("2")
+        if expr.args[1].head == :$
+            println("2.1")
+            return metajulia_eval(expr.args[1].args[1], env)
+        else
+            println("2.2")
+            dump(expr.args[1])
+            #passar por todos os args se tiver $ avaliar senao retornar
+            return expr.args[1]
+        end
+    end
+end
+
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
 function metajulia_eval(expr, env = initial_bindings())
@@ -287,6 +309,8 @@ function metajulia_eval(expr, env = initial_bindings())
         return expr
     elseif is_name(expr)
         return eval_name(expr, env)
+    elseif is_quasiquote(expr)
+        return eval_quasiquote(expr,env)
     elseif is_call(expr)
         return eval_call(expr, env)
     elseif is_bool_operator(expr)
