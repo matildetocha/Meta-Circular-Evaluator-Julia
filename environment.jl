@@ -18,7 +18,7 @@ empty_environment() = Dict{Symbol, Any}()
 # Constructor
 function make_environment(name, value, env)
   env[name] = value
-  
+
   return env
 end
 
