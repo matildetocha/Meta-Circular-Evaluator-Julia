@@ -1,5 +1,4 @@
 # Julia Meta-Circular Evaluator 
-import Base.show
 include("environment.jl")
 include("primitives.jl")
 
@@ -83,24 +82,17 @@ env)))
 =#
 function eval_call(expr, env)
     # Verify what type the call is, then process it
+
     args = eval_exprs(call_operands(expr), env)
-    
+
     if isa(expr.args[1], Symbol)
         func = eval_name(call_operator(expr), env) 
-    else #if is_anonymous_function(expr.args[1])
-        #println("ANONYMOUS FUNCTION")
-        #println("anonymous_param ", expr.args[1].args[1])
-        #println("anonymous_body ", expr.args[1].args[2].args[2])
-        #println("anonymous_func ", :($(expr.args[1].args[1]) -> $(expr.args[1].args[2].args[2])))
-        anonymous_param = isa(expr.args[1].args[1], Symbol) ? [expr.args[1].args[1]] : expr.args[1].args[1].args
-        anonymous_body = expr.args[1].args[2].args[2]
-        anonymous_func = :($(anonymous_param) -> $(anonymous_body))
+    else # is anonymous function
+        anonymous_func = :($(anonymous_param(expr)) -> $(anonymous_body(expr)))
         
         extended_environment = augment_environment([:anonymous], [eval_anonymous_funtion(anonymous_func)], env)
         func = eval_name(:anonymous, extended_environment)
         if args == [] || isa(args, Symbol)
-            #println("args -: ", args)
-            #println("voltei??'")
             args = [args]
         end
     end
@@ -108,16 +100,21 @@ function eval_call(expr, env)
     if is_primitive(call_operator(expr))
         return func(args)
     else
-        #println("else") 
-        #println("func: ", func)
-        #println("ARGS------------: ", args)
-        #println("func par: ", func.params)
-        #println("func bod: ", func.body)
-        extended_environment = augment_environment(func.params, args, env)
+        if func.params != :(())
+            extended_environment = augment_environment(func.params, args, env)
+        else
+            extended_environment = env
+        end
+        println("FUNC PARAMS: ", func.params)
+        println("FUNC BODY: ", func.body)
+
+        print("ENV: " , extended_environment)
         return metajulia_eval(func.body, extended_environment)
     end   
 end
 
+anonymous_param(expr) = isa(expr.args[1].args[1], Symbol) ? [expr.args[1].args[1]] : expr.args[1].args[1].args
+anonymous_body(expr) = expr.args[1].args[2].args[2]
 
 # Evaluating a Boolean Operator -------------------------------------------------------------------
 
@@ -249,12 +246,17 @@ end
 
 # Eval Let
 function eval_let(expr, env)
+    println("Inside Eval Let: ", expr)
     let_env = deepcopy(env)
     assignment_expr = let_assignment(expr)
+    println("assignment_expr: ", assignment_expr)
     values = eval_exprs(let_inits(assignment_expr), let_env)
+    println("values: ", values)
+    println("let_names: ", let_names(assignment_expr))
 
     extended_environment = augment_environment(let_names(assignment_expr), values, let_env)
-
+    println("extended_environment: ", extended_environment )
+    println("let_body: ", let_body(expr))
     result = metajulia_eval(let_body(expr), extended_environment)
 
     return result
@@ -280,6 +282,8 @@ function eval_assignment(expr, env)
     println("NAME: ", name)
     augment_environment([name], [value], env)
     
+    println("ENV: " , env)
+
     return value
 end
 
@@ -289,16 +293,23 @@ is_anonymous_function(expr) = expr.head == :(->)
 function eval_anonymous_funtion(expr)
     params = expr.args[1]
     body = expr.args[2]
-    if (params == Expr[:(())])
-        params = [:¬]  
-    elseif (isa(params, Symbol))
+    if (isa(params, Symbol))
         params = [params]        
     end
 
     return MetaJuliaFunction(:function, params, body)
 end
 
-# Reflection -----------------------------------------------------
+# Global ------------------------------------------------------------------------------------------
+is_global(expr) = expr.head == :global
+
+function eval_global(expr, env)
+    println("Inside Eval Global: ", expr)
+    println("global_expr: ", expr.args[1])
+    return eval_assignment(expr.args[1], env)
+end
+
+# Reflection --------------------------------------------------------------------------------------
 
 is_quasiquote(expr) = isa(expr, QuoteNode) || expr.head == :quote
 
@@ -343,6 +354,8 @@ function metajulia_eval(expr, env = initial_bindings())
         return eval_block(expr, env)
     elseif is_let(expr)
         return eval_let(expr, env)
+    elseif is_global(expr)
+       return eval_global(expr, env)
     elseif is_assignment(expr)
         return eval_assignment(expr, env)
     elseif is_anonymous_function(expr)
