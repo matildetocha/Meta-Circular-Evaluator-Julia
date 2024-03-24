@@ -235,13 +235,23 @@ function eval_let(expr, env)
     names = let_names(assignment_expr)
 
     extended_environment = augment_environment(names, values, let_env)
-
+    println("Extended Environment: ", extended_environment)
+    
     for (value, name) in zip(values, names)
         if isa(value, MetaJuliaFunction) # If it's a function, we need to extend the namespace to have the function itself
             function_namespace = extended_environment[name].namespace 
             extended_environment[name].namespace = augment_environment([name], [value], function_namespace) 
         end
     end
+    
+    for exp in let_body(expr).args
+        if (!is_line_number_node(exp) && !is_self_evaluating(exp) && !isa(exp, Symbol))
+            if (is_global(exp))
+                eval_global(exp.args[1], env, extended_environment)
+            end
+        end
+    end
+    
 
     result = metajulia_eval(let_body(expr), extended_environment)
 
@@ -262,7 +272,6 @@ assignment_init(expr) = is_variable(expr) ? var_init(expr) : :($(function_parame
 function eval_assignment(expr, env)
     value = metajulia_eval(assignment_init(expr), env)
     name = assignment_name(expr)
-
     augment_environment([name], [value], env)
 
     if isa(value, MetaJuliaFunction) # If it's a function, we need to extend the namespace to have the function itself
@@ -291,8 +300,13 @@ end
 # Global ------------------------------------------------------------------------------------------
 is_global(expr) = expr.head == :global
 
-function eval_global(expr, env)
-    return eval_assignment(expr.args[1], env)
+function eval_global(expr, env, extended_environment = initial_environment())
+    value = eval_assignment(expr, env)
+    name = assignment_name(expr)
+
+    function_namespace = extended_environment
+    env[name].namespace = augment_environment([name], [value], function_namespace) 
+    return value
 end
 
 # Reflection --------------------------------------------------------------------------------------
@@ -346,12 +360,12 @@ function metajulia_eval(expr, env = initial_bindings())
         return eval_block(expr, env)
     elseif is_let(expr)
         return eval_let(expr, env)
-    elseif is_global(expr)
-       return eval_global(expr, env)
     elseif is_assignment(expr)
         return eval_assignment(expr, env)
     elseif is_anonymous_function(expr)
         return eval_anonymous_funtion(expr, env)
+    elseif is_global(expr)
+        return eval_global(expr.args[1], env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
