@@ -2,10 +2,10 @@
 include("environment.jl")
 include("primitives.jl")
 
-struct MetaJuliaFunction
-    func
+mutable struct MetaJuliaFunction
     params
     body
+    namespace
 end
 Base.show(io::IO, result::MetaJuliaFunction) = print(io, "<function>")
 
@@ -21,7 +21,7 @@ is_line_number_node(expr) = isa(expr, LineNumberNode)
 # Predicate
 function is_self_evaluating(expr)
     # If the expression is a number, string or boolean, then it's self evaluating
-    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool)
+    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool) || isa(expr, MetaJuliaFunction)
 end  
 
 # Evaluating a Name -------------------------------------------------------------------------------
@@ -65,21 +65,7 @@ call_function_params(func) = func.args[1...]
 
 call_function_body(func) = func.args[2]
 
-#= Eval Call 
-
-(define (eval-call exp env)
-(let ((func (eval-name (call-operator exp) env))
-(args (eval-exprs (call-operands exp) env)))
-(let ((extended-environment
-(augment-environment (function-parameters func)
-args
-env)))
-(eval (function-body func) extended-environment))))
-
-(:x, :(Any[:y]->Any[:(y + 1)]))
-(y, 1)
-
-=#
+# Eval Call 
 function eval_call(expr, env)
     # Verify what type the call is, then process it
 
@@ -90,7 +76,7 @@ function eval_call(expr, env)
     else # is anonymous function
         anonymous_func = :($(anonymous_param(expr)) -> $(anonymous_body(expr)))
         
-        extended_environment = augment_environment([:anonymous], [eval_anonymous_funtion(anonymous_func)], env)
+        extended_environment = augment_environment([:anonymous], [eval_anonymous_funtion(anonymous_func, env)], env)
         func = eval_name(:anonymous, extended_environment)
         if args == [] || isa(args, Symbol)
             args = [args]
@@ -101,14 +87,11 @@ function eval_call(expr, env)
         return func(args)
     else
         if func.params != :(())
-            extended_environment = augment_environment(func.params, args, env)
+            extended_environment = augment_environment(func.params, args, func.namespace)
         else
-            extended_environment = env
+            extended_environment = func.namespace
         end
-        println("FUNC PARAMS: ", func.params)
-        println("FUNC BODY: ", func.body)
 
-        print("ENV: " , extended_environment)
         return metajulia_eval(func.body, extended_environment)
     end   
 end
@@ -246,17 +229,20 @@ end
 
 # Eval Let
 function eval_let(expr, env)
-    println("Inside Eval Let: ", expr)
     let_env = deepcopy(env)
     assignment_expr = let_assignment(expr)
-    println("assignment_expr: ", assignment_expr)
-    values = eval_exprs(let_inits(assignment_expr), let_env)
-    println("values: ", values)
-    println("let_names: ", let_names(assignment_expr))
+    values = let_inits(assignment_expr)
+    names = let_names(assignment_expr)
 
-    extended_environment = augment_environment(let_names(assignment_expr), values, let_env)
-    println("extended_environment: ", extended_environment )
-    println("let_body: ", let_body(expr))
+    extended_environment = augment_environment(names, values, let_env)
+
+    for (value, name) in zip(values, names)
+        if isa(value, MetaJuliaFunction) # If it's a function, we need to extend the namespace to have the function itself
+            function_namespace = extended_environment[name].namespace 
+            extended_environment[name].namespace = augment_environment([name], [value], function_namespace) 
+        end
+    end
+
     result = metajulia_eval(let_body(expr), extended_environment)
 
     return result
@@ -274,15 +260,15 @@ assignment_init(expr) = is_variable(expr) ? var_init(expr) : :($(function_parame
 
 # Eval Assignment
 function eval_assignment(expr, env)
-    println("Inside Eval Assignment: ", expr)
-    println("assignment_init: ", assignment_init(expr))
     value = metajulia_eval(assignment_init(expr), env)
     name = assignment_name(expr)
-    println("VALUE: ", value)
-    println("NAME: ", name)
+
     augment_environment([name], [value], env)
-    
-    println("ENV: " , env)
+
+    if isa(value, MetaJuliaFunction) # If it's a function, we need to extend the namespace to have the function itself
+        function_namespace = env[name].namespace 
+        env[name].namespace = augment_environment([name], [value], function_namespace) 
+    end
 
     return value
 end
@@ -290,22 +276,22 @@ end
 # Evaluating an Anonymous Function ---------------------------------------------------------------------------
 is_anonymous_function(expr) = expr.head == :(->)
 
-function eval_anonymous_funtion(expr)
+function eval_anonymous_funtion(expr, env)
     params = expr.args[1]
     body = expr.args[2]
+    namespace = deepcopy(env)
+
     if (isa(params, Symbol))
         params = [params]        
     end
 
-    return MetaJuliaFunction(:function, params, body)
+    return MetaJuliaFunction(params, body, namespace)
 end
 
 # Global ------------------------------------------------------------------------------------------
 is_global(expr) = expr.head == :global
 
 function eval_global(expr, env)
-    println("Inside Eval Global: ", expr)
-    println("global_expr: ", expr.args[1])
     return eval_assignment(expr.args[1], env)
 end
 
@@ -365,7 +351,7 @@ function metajulia_eval(expr, env = initial_bindings())
     elseif is_assignment(expr)
         return eval_assignment(expr, env)
     elseif is_anonymous_function(expr)
-        return eval_anonymous_funtion(expr)
+        return eval_anonymous_funtion(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
