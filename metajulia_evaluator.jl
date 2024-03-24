@@ -314,19 +314,25 @@ end
 is_quasiquote(expr) = isa(expr, QuoteNode) || expr.head == :quote
 
 function eval_quasiquote(expr, env)
-    if isa(expr, QuoteNode)
-        println("1")
+    if isa(expr, QuoteNode) 
         return expr.value
+    elseif isa(expr, Number) # Base case
+        return expr
     else
-        println("2")
-        if expr.args[1].head == :$
-            println("2.1")
+        if expr.head == :$ 
+            return metajulia_eval(expr.args[1], env)
+        elseif expr.head == :call 
+            for i in 2:length(expr.args)
+                expr.args[i] = eval_quasiquote(expr.args[i], env)
+            end
+            return expr
+        elseif expr.args[1].head == :$ 
             return metajulia_eval(expr.args[1].args[1], env)
         else
-            println("2.2")
-            dump(expr.args[1])
-            #passar por todos os args se tiver $ avaliar senao retornar
-            return expr.args[1]
+            for i in 2:length(expr.args[1].args)
+                expr.args[1].args[i] = eval_quasiquote(expr.args[1].args[i], env)
+            end
+            return expr.args[1] 
         end
     end
 end
