@@ -20,6 +20,7 @@ primitives = Dict{Symbol, Any}(
   # # Numeric Comparisons
   :(==) => ((args...) -> apply_primitive(make_primitive(==), args...)),
   :(!=) => ((args...) -> apply_primitive(make_primitive(!=), args...)),
+  :(!) => ((args...) -> apply_primitive(make_primitive(!), args...)),
   :(>) => ((args...) -> apply_primitive(make_primitive(>), args...)),
   :(>=) => ((args...) -> apply_primitive(make_primitive(>=), args...)),
   :(<) => ((args...) -> apply_primitive(make_primitive(<), args...)),
