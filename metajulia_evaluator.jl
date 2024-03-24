@@ -2,6 +2,11 @@
 include("environment.jl")
 include("primitives.jl")
 
+struct fexpr
+
+end
+Base.show(io::IO, result::fexpr) = print(io, "<fexpr>")
+
 mutable struct MetaJuliaFunction
     params
     body
@@ -21,7 +26,7 @@ is_line_number_node(expr) = isa(expr, LineNumberNode)
 # Predicate
 function is_self_evaluating(expr)
     # If the expression is a number, string or boolean, then it's self evaluating
-    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool) || isa(expr, MetaJuliaFunction)
+    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool) || isa(expr, MetaJuliaFunction) 
 end  
 
 # Evaluating a Name -------------------------------------------------------------------------------
@@ -71,7 +76,7 @@ function eval_call(expr, env)
 
     args = eval_exprs(call_operands(expr), env)
 
-    if isa(expr.args[1], Symbol)
+    if is_name(expr.args[1]) # is a function
         func = eval_name(call_operator(expr), env) 
     else # is anonymous function
         anonymous_func = :($(anonymous_param(expr)) -> $(anonymous_body(expr)))
@@ -311,27 +316,30 @@ end
 
 # Reflection --------------------------------------------------------------------------------------
 
-is_quasiquote(expr) = isa(expr, QuoteNode) || expr.head == :quote
+is_quote(expr) = isa(expr, QuoteNode) || expr.head == :quote
+is_unquote(expr) = expr.head == :$
+is_quote_node(expr) = isa(expr, QuoteNode)
 
-function eval_quasiquote(expr, env)
-    if isa(expr, QuoteNode) 
+function eval_quote(expr, env)
+    if is_quote_node(expr)
         return expr.value
-    elseif isa(expr, Number) # Base case
+    elseif is_self_evaluating(expr) || is_name(expr)
         return expr
     else
-        if expr.head == :$ 
+        if is_unquote(expr)
             return metajulia_eval(expr.args[1], env)
-        elseif expr.head == :call 
+        elseif is_call(expr)
             for i in 2:length(expr.args)
-                expr.args[i] = eval_quasiquote(expr.args[i], env)
+                expr.args[i] = eval_quote(expr.args[i], env)
             end
             return expr
-        elseif expr.args[1].head == :$ 
+        elseif is_unquote(expr.args[1])
             return metajulia_eval(expr.args[1].args[1], env)
         else
             for i in 2:length(expr.args[1].args)
-                expr.args[1].args[i] = eval_quasiquote(expr.args[1].args[i], env)
+                expr.args[1].args[i] = eval_quote(expr.args[1].args[i], env)
             end
+
             return expr.args[1] 
         end
     end
@@ -346,8 +354,8 @@ function metajulia_eval(expr, env = initial_bindings())
         return expr
     elseif is_name(expr)
         return eval_name(expr, env)
-    elseif is_quasiquote(expr)
-        return eval_quasiquote(expr,env)
+    elseif is_quote(expr)
+        return eval_quote(expr,env)
     elseif is_call(expr)
         return eval_call(expr, env)
     elseif is_bool_operator(expr)
