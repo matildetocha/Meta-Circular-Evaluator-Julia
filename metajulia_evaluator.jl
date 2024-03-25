@@ -2,10 +2,6 @@
 include("environment.jl")
 include("primitives.jl")
 
-struct fexpr
-
-end
-Base.show(io::IO, result::fexpr) = print(io, "<fexpr>")
 
 mutable struct MetaJuliaFunction
     params
@@ -13,6 +9,13 @@ mutable struct MetaJuliaFunction
     namespace
 end
 Base.show(io::IO, result::MetaJuliaFunction) = print(io, "<function>")
+
+mutable struct MetaJuliaFexpr
+    params
+    body
+    namespace
+end
+Base.show(io::IO, result::MetaJuliaFexpr) = print(io, "<fexpr>")
 
 # -------------------------------------------------------------------------------------------------
 # - Eval
@@ -26,7 +29,8 @@ is_line_number_node(expr) = isa(expr, LineNumberNode)
 # Predicate
 function is_self_evaluating(expr)
     # If the expression is a number, string or boolean, then it's self evaluating
-    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool) || isa(expr, MetaJuliaFunction) 
+    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool) ||
+            isa(expr, MetaJuliaFunction)  || isa(expr, MetaJuliaFexpr)
 end  
 
 # Evaluating a Name -------------------------------------------------------------------------------
@@ -74,15 +78,18 @@ call_function_body(func) = func.args[2]
 function eval_call(expr, env)
     # Verify what type the call is, then process it
 
-    args = eval_exprs(call_operands(expr), env)
-
-    if is_name(expr.args[1]) # is a function
+    if is_name(expr.args[1]) # is a function or fexpr
         func = eval_name(call_operator(expr), env) 
+
+        args = isa(func, MetaJuliaFunction) ? eval_exprs(call_operands(expr), env) :
+                                                         call_operands(expr)
     else # is anonymous function
         anonymous_func = :($(anonymous_param(expr)) -> $(anonymous_body(expr)))
         
         extended_environment = augment_environment([:anonymous], [eval_anonymous_funtion(anonymous_func, env)], env)
+        
         func = eval_name(:anonymous, extended_environment)
+        args = eval_exprs(call_operands(expr), env)
         if args == [] || isa(args, Symbol)
             args = [args]
         end
@@ -97,7 +104,13 @@ function eval_call(expr, env)
             extended_environment = func.namespace
         end
 
-        return metajulia_eval(func.body, extended_environment)
+        println("CALLLLLL")
+        println("args: ", args)
+        println("body: ", func.body)
+        println("params: ", func.params)
+        println("namespace: ", func.namespace)
+
+        return isa(func, MetaJuliaFunction) ? metajulia_eval(func.body, extended_environment) : metajulia_eval(func.body, extended_environment)
     end   
 end
 
@@ -240,7 +253,6 @@ function eval_let(expr, env)
     names = let_names(assignment_expr)
 
     extended_environment = augment_environment(names, values, let_env)
-    println("Extended Environment: ", extended_environment)
     
     for (value, name) in zip(values, names)
         if isa(value, MetaJuliaFunction) # If it's a function, we need to extend the namespace to have the function itself
@@ -257,9 +269,7 @@ function eval_let(expr, env)
         end
     end
     
-
     result = metajulia_eval(let_body(expr), extended_environment)
-
     return result
 end
 
@@ -339,11 +349,31 @@ function eval_quote(expr, env)
             for i in 2:length(expr.args[1].args)
                 expr.args[1].args[i] = eval_quote(expr.args[1].args[i], env)
             end
-
+            
             return expr.args[1] 
         end
     end
 end
+
+is_fexpr(expr) = expr.head == :(:=) 
+
+function eval_fexpr(expr, env)
+    # Create fexpr
+    name = expr.args[1].args[1]
+    params = expr.args[1].args[2:end]
+    body = expr.args[2:end]
+    namespace = deepcopy(env)
+    value = MetaJuliaFexpr(params, body, namespace)
+    augment_environment([name], [value], env)
+
+    # include Fexpr in its own namespace
+    #fexpr_namespace = extended_environment
+    env[name].namespace = augment_environment([name], [value], env) 
+
+    return value
+end
+
+
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
@@ -374,6 +404,8 @@ function metajulia_eval(expr, env = initial_bindings())
         return eval_anonymous_funtion(expr, env)
     elseif is_global(expr)
         return eval_global(expr.args[1], env)
+    elseif is_fexpr(expr)
+        return eval_fexpr(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
