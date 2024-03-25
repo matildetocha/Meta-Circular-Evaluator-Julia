@@ -2,6 +2,12 @@
 include("environment.jl")
 include("primitives.jl")
 
+mutable struct MetaJuliaMacro
+    params
+    body
+    namespace
+end
+Base.show(io::IO, result::MetaJuliaMacro) = print(io, "<macro>")
 
 mutable struct MetaJuliaFunction
     params
@@ -388,6 +394,24 @@ function eval_fexpr(expr, env)
     return value
 end
 
+# Macros ------------------------------------------------------------------------------------------
+# Symbol $ is used to define a macro
+
+is_macro(expr) = expr.head == :$=
+
+function eval_macro(expr, env) 
+    #create macro
+    println("MACRO")
+    params = expr.args[1]
+    body = expr.args[2]
+    namespace = deepcopy(env)
+    println("PARAMS: ", params)
+    println("BODY: ", body)
+    println("NAMESPACE: ", namespace)  
+
+    return MetaJuliaMacro(params, body, namespace) 
+end
+
 
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
@@ -424,6 +448,8 @@ function metajulia_eval(expr, env = initial_bindings())
         return eval_global(expr.args[1], env)
     elseif is_fexpr(expr)
         return eval_fexpr(expr, env)
+    elseif is_macro(expr)
+        return eval_macro(expr, env)
     else
         # Error handling, simply return the expression with a message "Unknown expression" and its type
         println("Unknown expression: ", expr, " of type ", typeof(expr))
