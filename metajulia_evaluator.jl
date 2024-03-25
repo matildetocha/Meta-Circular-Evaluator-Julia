@@ -81,7 +81,7 @@ function eval_call(expr, env)
     if is_name(expr.args[1]) # is a function or fexpr
         func = eval_name(call_operator(expr), env) 
 
-        args = isa(func, MetaJuliaFunction) ? eval_exprs(call_operands(expr), env) :
+        args = (isa(func, MetaJuliaFunction) || is_primitive(call_operator(expr))) ? eval_exprs(call_operands(expr), env) :
                                                          call_operands(expr)
     else # is anonymous function
         anonymous_func = :($(anonymous_param(expr)) -> $(anonymous_body(expr)))
