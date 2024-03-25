@@ -27,7 +27,9 @@ primitives = Dict{Symbol, Any}(
   :(<=) => ((args...) -> apply_primitive(make_primitive(<=), args...)),
   # Print and Println
   :(print) => ((args...) -> apply_primitive(make_primitive(print), args...)),
-  :(println) => ((args...) -> apply_primitive(make_primitive(println), args...))
+  :(println) => ((args...) -> apply_primitive(make_primitive(println), args...)),
+  # Eval
+  :(eval) => ((args...) -> apply_primitive(make_primitive(eval), args...))
 )
 
 # Primitives -------------------------------------------------------------------------
