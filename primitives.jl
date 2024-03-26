@@ -29,12 +29,12 @@ primitives = Dict{Symbol, Any}(
   :(print) => ((args...) -> apply_primitive(make_primitive(print), args...)),
   :(println) => ((args...) -> apply_primitive(make_primitive(println), args...)),
   # Eval
-  :(eval) => ((args...) -> apply_primitive(make_primitive(eval), args...))
+  :(eval) => ((args...) -> apply_primitive(make_primitive(metajulia_eval), args... ))
 )
 
 # Primitives -------------------------------------------------------------------------
 
-# Predicate
+# Predicate 
 is_primitive(func) = haskey(primitives, func)
 
 # Constructor
