@@ -89,7 +89,11 @@ function eval_call(expr, env)
     if is_name(expr.args[1]) # is a function or fexpr
         func = eval_name(call_operator(expr), env) 
 
+        println()
         args = (!isa(func, MetaJuliaFexpr)) ? eval_exprs(call_operands(expr), env) : eval_args_fexpr(call_operands(expr))
+
+        println("call func: ", func)
+        println("call args: ", args)
 
     else # is anonymous function
         anonymous_func = :($(anonymous_param(expr)) -> $(anonymous_body(expr)))
@@ -104,14 +108,14 @@ function eval_call(expr, env)
     end
 
     if is_primitive(call_operator(expr))
-        println("Primitiva" )
-        println("func: ", call_operator(expr))
-        println("argumentos: ", args)
-        println("env: ", env)
-
-        return call_operator(expr) != :eval ? func(args) : func(args, env)
+        println("PRIMITIVE")
+        return call_operator(expr) != :eval ? func(args) : func(args[1], env)
     else
+        println("hellooooooooo, params: ", func.params != :(()))
+
         if func.params != :(())
+            println("func.params: ", func.params)
+            println("args: ", args)
             extended_environment = augment_environment(func.params, args, func.namespace)
         else
             extended_environment = func.namespace
@@ -264,8 +268,10 @@ function eval_let(expr, env)
     assignment_expr = let_assignment(expr)
     values = let_inits(assignment_expr)
     names = let_names(assignment_expr)
+    println("Names: ", names)
 
     extended_environment = augment_environment(names, values, let_env)
+    println("extended_environment: ", extended_environment)
     
     for (value, name) in zip(values, names)
         if isa(value, MetaJuliaFunction) # If it's a function, we need to extend the namespace to have the function itself
@@ -281,6 +287,8 @@ function eval_let(expr, env)
             end
         end
     end
+
+    dump(let_body(expr))
     
     result = metajulia_eval(let_body(expr), extended_environment)
     return result
@@ -298,6 +306,7 @@ assignment_name(expr) =  is_variable(expr) ? var_name(expr) : function_name(expr
 
 function assignment_init(expr)
     if is_variable(expr) 
+        println("YAYA")
         if (!is_self_evaluating(expr.args[2]) && is_quote(expr.args[2]))
             return :($(Expr(:quote, expr.args[2])))
         end
@@ -359,7 +368,8 @@ is_unquote(expr) = expr.head == :$
 is_quote_node(expr) = isa(expr, QuoteNode)
 
 function eval_quote(expr, env)
-
+    println("expr: " , expr, " Dump ")
+    dump(expr)
     if is_quote_node(expr)
         return expr.value
     elseif is_self_evaluating(expr) || is_name(expr)
@@ -419,15 +429,16 @@ macro_parameters(expr) = expr.args[1].args[2:end]
 
 function eval_macro(expr, env) 
     #create macro
-    println("MACRO")
+    #println("MACRO")
     name = macro_name(expr)
     params = expr.args[1]
     body = expr.args[2]
     namespace = deepcopy(env)
     value = MetaJuliaMacro(params, body, namespace)
-    println("PARAMS: ", params)
+    #=println("PARAMS: ", params)
     println("BODY: ", body)
     println("NAMESPACE: ", namespace)
+    =#
     augment_environment([name], [value], env)
 
     return MetaJuliaMacro(params, body, namespace) 
