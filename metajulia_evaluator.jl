@@ -98,13 +98,14 @@ end
 
 # Eval Call 
 function eval_call(expr, env)
-    # Verify what type the call is, then process it
 
     if is_name(expr.args[1]) # is a function or fexpr
         func = eval_name(call_operator(expr), env) 
 
         #println(call_operands(expr))
-        args = (!isa(func, MetaJuliaFexpr)) ? eval_exprs(call_operands(expr), env) : eval_args_fexpr(call_operands(expr))
+        
+        args = (isa(func, MetaJuliaFunction) || is_primitive(call_operator(expr))) ? 
+                eval_exprs(call_operands(expr), env) : eval_args_fexpr(call_operands(expr))
 
         #println("call func: ", func)
         #println("call args: ", args)
@@ -126,7 +127,8 @@ function eval_call(expr, env)
         #println("PRIMITIVE")
         return call_operator(expr) != :eval ? func(args) : func(args[1], env)
     else
-        #println("hellooooooooo, params: ", func.params != :(()))
+        #println("hellooooooooo, ", call_operator(expr),  " params: ", func.params != :(()))
+        #println("TEM :x ANTES DO augment_environment?? ", haskey(env, :x))
 
         if func.params != :(())
             #println("func.params: ", func.params)
@@ -136,13 +138,17 @@ function eval_call(expr, env)
             extended_environment = func.namespace
         end
 
+        #println("TEM :x?? ", haskey(extended_environment, :x))
+
         #println("CALLLLLL")
         #println("args: ", args)
         #println("body: ", func.body)
         #println("params: ", func.params)
+        #print(" teste", !isa(func, MetaJuliaMacro))
         #println("namespace of $(call_operator(expr)): ", func.namespace)
         #println("------------------------------------")
-        return metajulia_eval(func.body, extended_environment)
+        return !isa(func, MetaJuliaMacro) ? metajulia_eval(func.body, extended_environment) : metajulia_eval(metajulia_eval(func.body, extended_environment), env)
+        #return metajulia_eval(func.body, extended_environment)
     end   
 end
 
@@ -200,6 +206,7 @@ if_alternative(expr) = expr.args[3]
 
 # Eval If
 function eval_if(expr, env)
+    #println("Expr If: ", expr)
     if is_true(metajulia_eval(if_condition(expr), env))
         return metajulia_eval(if_consequent(expr), env)
     else
@@ -392,31 +399,24 @@ function eval_quote(expr, env)
 
     if is_quote_node(expr)
         return expr.value
-    elseif is_self_evaluating(expr) || is_name(expr) 
-        return expr
     elseif is_line_number_node(expr)
         return
+    elseif is_self_evaluating(expr) || is_name(expr) 
+        return expr
+    elseif is_quote(expr)
+        return eval_quote(Expr(expr.args[1].head, expr.args[1].args...), env)
+    elseif is_unquote(expr)
+        return metajulia_eval(expr.args[1], env)
     else
-        if is_unquote(expr)
-            return metajulia_eval(expr.args[1], env)
-        elseif is_call(expr) || is_assignment(expr)
-            #println("CALL OR ASSIGNMENT")
-            for i in 2:length(expr.args)
-
-                expr.args[i] = eval_quote(expr.args[i], env)
-            end
+        if isempty(expr.args)
             return expr
-        elseif is_unquote(expr.args[1])
+        end 
 
-            return metajulia_eval(expr.args[1].args[1], env)
-        else
-            for i in 2:length(expr.args[1].args)
-                expr.args[1].args[i] = eval_quote(expr.args[1].args[i], env)
-            end
-
-            #println("ultimo return")
-            return expr.args[1] 
+        for i in 1:length(expr.args)
+            expr.args[i] = eval_quote(expr.args[i], env)
         end
+
+        return expr
     end
 end
 
@@ -444,35 +444,36 @@ function eval_fexpr(expr, env)
 end
 
 # Macros ------------------------------------------------------------------------------------------
-# Symbol $ is used to define a macro
 
 is_macro(expr) = expr.head == :$=
 macro_name(expr) = expr.args[1].args[1]
-macro_body(expr) = expr.args[2]
 macro_parameters(expr) = expr.args[1].args[2:end]
+macro_body(expr) = expr.args[2]
 
 function eval_macro(expr, env) 
     #create macro
     #println("MACRO")
     name = macro_name(expr)
-    params = expr.args[1]
-    body = expr.args[2]
+    params = macro_parameters(expr)
+    body = macro_body(expr)
     namespace = deepcopy(env)
     value = MetaJuliaMacro(params, body, namespace)
-    #=println("PARAMS: ", params)
-    println("BODY: ", body)
-    println("NAMESPACE: ", namespace)
-    =#
+    #println("PARAMS: ", params)
+    #println("BODY: ", body)
+    #println("NAMESPACE: ", namespace)
+    
     augment_environment([name], [value], env)
 
-    return MetaJuliaMacro(params, body, namespace) 
+    return value
 end
 
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
 function metajulia_eval(expr, env = initial_bindings())
-
+    #println("------------------------------------")
+    #println("EXPR: ", expr)
+    
     if is_line_number_node(expr)
         return
     elseif is_self_evaluating(expr)

@@ -29,7 +29,9 @@ primitives = Dict{Symbol, Any}(
   :(print) => ((args...) -> apply_primitive(make_primitive(print), args...)),
   :(println) => ((args...) -> apply_primitive(make_primitive(println), args...)),
   # Eval
-  :(eval) => ((args, env) -> metajulia_eval(args, env))
+  :(eval) => ((args, env) -> metajulia_eval(args, env)),
+  # Gensym
+  #:(gensym) => ((args...) -> apply_primitive(make_primitive(gensym), args...))
 )
 
 # Primitives -------------------------------------------------------------------------
