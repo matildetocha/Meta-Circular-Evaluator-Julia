@@ -35,7 +35,7 @@ is_line_number_node(expr) = isa(expr, LineNumberNode)
 # Predicate
 function is_self_evaluating(expr)
     # If the expression is a number, string or boolean, then it's self evaluating
-    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool) ||
+    return isa(expr, Number) || isa(expr, String) || isa(expr, Bool) || isa(expr, Nothing) ||
             isa(expr, MetaJuliaFunction)  || isa(expr, MetaJuliaFexpr) || isa(expr, MetaJuliaMacro)
 end  
 
@@ -80,7 +80,21 @@ call_function_params(func) = func.args[1...]
 
 call_function_body(func) = func.args[2]
 
-eval_args_fexpr(args) = [:($(Expr(:quote, args[1])))]
+function eval_args_fexpr(args)
+    result = Any[]
+    for a in args 
+        #if is_self_evaluating(a) || isa(a, Symbol)
+        #    push!(result, a)
+        #else
+        push!(result, Expr(:quote, a))
+        #end
+    end
+
+    return result
+    #[:($(Expr(:quote, args[1])))]
+end
+
+#eval_args_fexpr(args) = [:($(Expr(:quote, args[1])))]
 
 # Eval Call 
 function eval_call(expr, env)
@@ -89,11 +103,11 @@ function eval_call(expr, env)
     if is_name(expr.args[1]) # is a function or fexpr
         func = eval_name(call_operator(expr), env) 
 
-        println()
+        #println(call_operands(expr))
         args = (!isa(func, MetaJuliaFexpr)) ? eval_exprs(call_operands(expr), env) : eval_args_fexpr(call_operands(expr))
 
-        println("call func: ", func)
-        println("call args: ", args)
+        #println("call func: ", func)
+        #println("call args: ", args)
 
     else # is anonymous function
         anonymous_func = :($(anonymous_param(expr)) -> $(anonymous_body(expr)))
@@ -107,26 +121,27 @@ function eval_call(expr, env)
         end
     end
 
+    #println("CALL FUNC NAME: ", call_operator(expr))
     if is_primitive(call_operator(expr))
-        println("PRIMITIVE")
+        #println("PRIMITIVE")
         return call_operator(expr) != :eval ? func(args) : func(args[1], env)
     else
-        println("hellooooooooo, params: ", func.params != :(()))
+        #println("hellooooooooo, params: ", func.params != :(()))
 
         if func.params != :(())
-            println("func.params: ", func.params)
-            println("args: ", args)
+            #println("func.params: ", func.params)
+            #println("args: ", args)
             extended_environment = augment_environment(func.params, args, func.namespace)
         else
             extended_environment = func.namespace
         end
 
-        println("CALLLLLL")
-        println("args: ", args)
-        println("body: ", func.body)
-        println("params: ", func.params)
-        println("namespace of $(call_operator(expr)): ", func.namespace)
-        println("------------------------------------")
+        #println("CALLLLLL")
+        #println("args: ", args)
+        #println("body: ", func.body)
+        #println("params: ", func.params)
+        #println("namespace of $(call_operator(expr)): ", func.namespace)
+        #println("------------------------------------")
         return metajulia_eval(func.body, extended_environment)
     end   
 end
@@ -228,7 +243,7 @@ function_name(expr) = expr.args[1].args[1]
 
 function_parameters(expr) = expr.args[1].args[2:end]
 
-function_body(expr) = expr.args[2].args[2]
+function_body(expr) = expr.args[2]
 
 var_name(expr) = expr.args[1]
 
@@ -268,10 +283,10 @@ function eval_let(expr, env)
     assignment_expr = let_assignment(expr)
     values = let_inits(assignment_expr)
     names = let_names(assignment_expr)
-    println("Names: ", names)
+    #println("Names: ", names)
 
     extended_environment = augment_environment(names, values, let_env)
-    println("extended_environment: ", extended_environment)
+    #println("extended_environment: ", extended_environment)
     
     for (value, name) in zip(values, names)
         if isa(value, MetaJuliaFunction) # If it's a function, we need to extend the namespace to have the function itself
@@ -288,7 +303,7 @@ function eval_let(expr, env)
         end
     end
 
-    dump(let_body(expr))
+    #dump(let_body(expr))
     
     result = metajulia_eval(let_body(expr), extended_environment)
     return result
@@ -306,7 +321,6 @@ assignment_name(expr) =  is_variable(expr) ? var_name(expr) : function_name(expr
 
 function assignment_init(expr)
     if is_variable(expr) 
-        println("YAYA")
         if (!is_self_evaluating(expr.args[2]) && is_quote(expr.args[2]))
             return :($(Expr(:quote, expr.args[2])))
         end
@@ -318,6 +332,7 @@ function assignment_init(expr)
 end
 # Eval Assignment
 function eval_assignment(expr, env)
+    #println("ASSIGNMENT: ", assignment_init(expr))
     value = metajulia_eval(assignment_init(expr), env)
     name = assignment_name(expr)
     augment_environment([name], [value], env)
@@ -334,8 +349,11 @@ end
 is_anonymous_function(expr) = expr.head == :(->)
 
 function eval_anonymous_funtion(expr, env)
+    #println("Expr ", expr)
     params = expr.args[1]
     body = expr.args[2]
+    #println("PARAMS: ", params)
+    #println("BODY: ", body)
     namespace = deepcopy(env)
 
     if (isa(params, Symbol))
@@ -368,16 +386,21 @@ is_unquote(expr) = expr.head == :$
 is_quote_node(expr) = isa(expr, QuoteNode)
 
 function eval_quote(expr, env)
-    println("expr: " , expr, " Dump ")
-    dump(expr)
+    #println("expr: " , expr, " Dump ")
+    #display(expr)
+    #dump(expr)
+
     if is_quote_node(expr)
         return expr.value
-    elseif is_self_evaluating(expr) || is_name(expr)
+    elseif is_self_evaluating(expr) || is_name(expr) 
         return expr
+    elseif is_line_number_node(expr)
+        return
     else
         if is_unquote(expr)
             return metajulia_eval(expr.args[1], env)
-        elseif is_call(expr)
+        elseif is_call(expr) || is_assignment(expr)
+            #println("CALL OR ASSIGNMENT")
             for i in 2:length(expr.args)
 
                 expr.args[i] = eval_quote(expr.args[i], env)
@@ -391,6 +414,7 @@ function eval_quote(expr, env)
                 expr.args[1].args[i] = eval_quote(expr.args[1].args[i], env)
             end
 
+            #println("ultimo return")
             return expr.args[1] 
         end
     end
