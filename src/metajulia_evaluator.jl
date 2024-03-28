@@ -157,11 +157,21 @@ second_argument_gate(expr) = expr.args[2]
 
 # Eval Boolean Operator
 function eval_and(expr, env)
-    return metajulia_eval(first_argument_gate(expr), env) && metajulia_eval(second_argument_gate(expr), env)
+    tmp = metajulia_eval(first_argument_gate(expr), env)
+    if tmp == false
+        return false
+    else
+        return tmp && metajulia_eval(second_argument_gate(expr), env)
+    end
 end
 
 function eval_or(expr, env)
-    return metajulia_eval(first_argument_gate(expr), env) || metajulia_eval(second_argument_gate(expr), env)
+    tmp = metajulia_eval(first_argument_gate(expr), env)
+    if tmp == true
+        return true
+    else
+        return tmp || metajulia_eval(second_argument_gate(expr), env)
+    end
 end
 
 function eval_bool_operator(expr, env)
