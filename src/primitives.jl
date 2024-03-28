@@ -1,4 +1,4 @@
-primitives = Dict{Symbol, Any}(
+primitives = Dict{Any, Any}(
   # Arithmetic Operators
   :(+) => ((args...) -> apply_primitive(make_primitive(+), args...)),
   :(-) => ((args...) -> apply_primitive(make_primitive(-), args...)),

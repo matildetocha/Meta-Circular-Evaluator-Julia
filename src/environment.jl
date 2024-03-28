@@ -3,7 +3,7 @@ include("primitives.jl")
 # Environment ------------------------------------------------------------------------
 # ((name-0 . value-0) (name-1 . value-1) ... (name-n . value-n))
 
-empty_environment() = Dict{Symbol, Any}()
+empty_environment() = Dict{Any, Any}()
 
 # Constructor
 function make_environment(name, value, env)

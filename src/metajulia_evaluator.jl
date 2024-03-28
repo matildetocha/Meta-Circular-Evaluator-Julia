@@ -28,6 +28,7 @@ Base.show(io::IO, result::MetaJuliaFexpr) = print(io, "<fexpr>")
 # -------------------------------------------------------------------------------------------------
 
 # Evaluating a Line Number Node -------------------------------------------------------------------
+
 is_line_number_node(expr) = isa(expr, LineNumberNode)
 
 # Evaluating a Self-Evaluating Expression ---------------------------------------------------------
@@ -48,6 +49,8 @@ is_name(exp) = isa(exp, Symbol)
 function eval_name(name, env)
     if isempty(env)
         return error("Unbound name -- EVAL-NAME ", name)
+    elseif name == :eval
+        return env["eval"]
     else
         return env[name]
     end
@@ -78,6 +81,10 @@ call_operands(expr) = expr.args[2:end]
 call_function_params(func) = func.args[1...]
 
 call_function_body(func) = func.args[2]
+
+anonymous_param(expr) = isa(expr.args[1].args[1], Symbol) ? [expr.args[1].args[1]] : expr.args[1].args[1].args
+
+anonymous_body(expr) = expr.args[1].args[2].args[2]
 
 function eval_args_fexpr(args)
     result = Any[]
@@ -111,14 +118,20 @@ function eval_call(expr, env)
             args = [args]
         end
     end
-
+    
     if is_primitive(call_operator(expr))
         return func(args)
     elseif call_operator(expr) == :eval
+        
         return func(args[1], env)
     else
         if func.params != :(())
             extended_environment = augment_environment(func.params, args, func.namespace)
+            
+            if isa(func, MetaJuliaFexpr)
+                extended_environment = merge(extended_environment, env)
+                
+            end
         else
             extended_environment = func.namespace
         end
@@ -127,8 +140,6 @@ function eval_call(expr, env)
     end   
 end
 
-anonymous_param(expr) = isa(expr.args[1].args[1], Symbol) ? [expr.args[1].args[1]] : expr.args[1].args[1].args
-anonymous_body(expr) = expr.args[1].args[2].args[2]
 
 # Evaluating a Boolean Operator -------------------------------------------------------------------
 
@@ -295,21 +306,26 @@ is_assignment(expr) = expr.head == :(=)
 # Selectors
 assignment_name(expr) =  is_variable(expr) ? var_name(expr) : function_name(expr)
 
-function assignment_init(expr)
+function assignment_init(expr, env)
+    # If the value is a variable or function, check if it already exists 
+
     if is_variable(expr) 
         if (!is_self_evaluating(expr.args[2]) && is_quote(expr.args[2]))
             return :($(Expr(:quote, expr.args[2])))
-        end
-        
-        return var_init(expr)
+        elseif is_name(expr.args[2]) && haskey(env, expr.args[2])
+            return expr.args[2]
+        else 
+            return var_init(expr)
+        end 
     else
-        return :($(function_parameters(expr)) -> $(function_body(expr)))
+       return :($(function_parameters(expr)) -> $(function_body(expr)))
+        
     end
 end
 
 # Eval Assignment
 function eval_assignment(expr, env)
-    value = metajulia_eval(assignment_init(expr), env)
+    value = metajulia_eval(assignment_init(expr, env), env)
     name = assignment_name(expr)
     augment_environment([name], [value], env)
 
@@ -317,15 +333,19 @@ function eval_assignment(expr, env)
         function_namespace = env[name].namespace 
         env[name].namespace = augment_environment([name], [value], function_namespace) 
     end
+
+
     
     return metajulia_eval(value)
 end
 
-# Evaluating an Anonymous Function ---------------------------------------------------------------------------
+# Evaluating an Anonymous Function ----------------------------------------------------------------
+
+# Predicate 
 is_anonymous_function(expr) = expr.head == :(->)
 
+# Eval Anonymous
 function eval_anonymous_funtion(expr, env)
-
     params = expr.args[1]
     body = expr.args[2]
     namespace = deepcopy(env)
@@ -337,30 +357,38 @@ function eval_anonymous_funtion(expr, env)
     return MetaJuliaFunction(params, body, namespace)
 end
 
-# Global ------------------------------------------------------------------------------------------
+# Evaluating Global -------------------------------------------------------------------------------
+
+# Predicate
 is_global(expr) = expr.head == :global
 
+# Eval Global
 function eval_global(expr, env, extended_environment = initial_environment())
     if is_fexpr(expr)
-        return eval_fexpr(expr, env)
+        value = eval_fexpr(expr, env) 
+        extended_environment["eval"] = ((args, eval_env) -> metajulia_eval(args, eval_env))
+    else
+        value = eval_assignment(expr, env)        
     end
 
-    value = eval_assignment(expr, env)
     name = assignment_name(expr)
-
     function_namespace = extended_environment
     env[name].namespace = augment_environment([name], [value], function_namespace) 
+
     return value
 end
 
 # Reflection --------------------------------------------------------------------------------------
 
+# Predicates 
 is_quote(expr) = isa(expr, QuoteNode) || expr.head == :quote
+
 is_unquote(expr) = expr.head == :$
+
 is_quote_node(expr) = isa(expr, QuoteNode)
 
+# Eval Quote
 function eval_quote(expr, env)
-
     if is_quote_node(expr)
         return expr.value
     elseif is_line_number_node(expr)
@@ -384,11 +412,19 @@ function eval_quote(expr, env)
     end
 end
 
+# Evaluating a Fexpr ------------------------------------------------------------------------------
+
+# Predicate 
 is_fexpr(expr) = expr.head == :(:=) 
+
+# Selectors
 fexpr_name(expr) = expr.args[1].args[1]
+
 fexpr_body(expr) = expr.args[2]
+
 fexpr_parameters(expr) = expr.args[1].args[2:end]
 
+# Eval Fexpr
 function eval_fexpr(expr, env)
     # Create fexpr
     name = fexpr_name(expr)
@@ -402,21 +438,27 @@ function eval_fexpr(expr, env)
     augment_environment([name], [value], env)
 
     #include Fexpr in its own namespace
-    #fexpr_namespace = env[name].namespace 
+    fexpr_namespace = env[name].namespace 
 
-    env[name].namespace = augment_environment([name], [value], env) 
-    env[name].namespace[:(eval)] = ((args, eval_env) -> metajulia_eval(args, eval_env))
+    env[name].namespace = augment_environment([name], [value], fexpr_namespace) 
+    env[name].namespace["eval"] = ((args, eval_env) -> metajulia_eval(args, eval_env))
 
     return value
 end
 
 # Macros ------------------------------------------------------------------------------------------
 
+# Predicate
 is_macro(expr) = expr.head == :$=
+
+# Selectors
 macro_name(expr) = expr.args[1].args[1]
+
 macro_parameters(expr) = expr.args[1].args[2:end]
+
 macro_body(expr) = expr.args[2]
 
+# Eval Macro
 function eval_macro(expr, env) 
     name = macro_name(expr)
     params = macro_parameters(expr)
@@ -428,7 +470,6 @@ function eval_macro(expr, env)
 
     return value
 end
-
 
 # Meta Julia Eval ---------------------------------------------------------------------------------
 
