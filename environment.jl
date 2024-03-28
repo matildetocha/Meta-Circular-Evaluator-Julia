@@ -17,10 +17,6 @@ function augment_environment(names, values, env)
   if isempty(names)
     return env
   else
-    #println("names ", names)
-    #println("names ", names[1])
-    #println("value ", values)
-    #println("valeus1 ", values[1])
     return augment_environment(names[2:end], values[2:end], make_environment(names[1], metajulia_eval(values[1], env), env))
   end
 end
